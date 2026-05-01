@@ -1,0 +1,32 @@
+2024-11-15 14:32:01 ERROR [data_processing] Unhandled exception in process_batch
+Traceback (most recent call last):
+  File "/app/data_processing.py", line 42, in process_batch
+    result = items[index]
+IndexError: list index out of range
+
+Request ID: req-7f3a2b1c
+User ID: user_alice_001
+Batch Size: 0
+Input File: uploads/alice_dataset_nov15.csv
+
+2024-11-15 14:38:17 ERROR [data_processing] Unhandled exception in process_batch
+Traceback (most recent call last):
+  File "/app/data_processing.py", line 42, in process_batch
+    result = items[index]
+IndexError: list index out of range
+
+Request ID: req-8c4d5e2f
+User ID: user_bob_002
+Batch Size: 0
+Input File: uploads/bob_report_nov15.csv
+
+2024-11-15 14:40:55 ERROR [data_processing] Unhandled exception in process_batch
+Traceback (most recent call last):
+  File "/app/data_processing.py", line 42, in process_batch
+    result = items[index]
+IndexError: list index out of range
+
+Request ID: req-9a1b2c3d
+User ID: user_charlie_003
+Batch Size: 0
+Input File: uploads/charlie_data_nov15.csv

@@ -1,0 +1,17 @@
+2024-11-17 16:45:22 ERROR [database_service] Query timeout exceeded
+sqlalchemy.exc.TimeoutError: Connection pool timeout after 30s
+  File "/app/database_service.py", line 134, in execute_query
+    result = session.execute(query)
+
+Slow query detected: SELECT * FROM orders WHERE user_id = ? (executed 47 times in last 60s)
+Connection pool size: 5/5 (exhausted)
+Queue depth: 23 pending requests
+
+2024-11-17 16:45:55 ERROR [database_service] Query timeout exceeded
+sqlalchemy.exc.TimeoutError: Connection pool timeout after 30s
+  File "/app/database_service.py", line 134, in execute_query
+    result = session.execute(query)
+
+Active connections: 5/5
+Longest held connection age: 142s
+Missing index on orders(user_id) suspected

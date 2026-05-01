@@ -1,0 +1,19 @@
+2024-11-16 09:15:44 ERROR [payment_service] Payment processing failure
+Traceback (most recent call last):
+  File "/app/payment_service.py", line 87, in process_payment
+    amount = payload["transaction"]["amount"]
+KeyError: 'transaction'
+
+Request ID: req-8a9b3c4d
+User ID: user_diana_004
+Payload: {"order_id": "ORD-5512", "currency": "USD"}
+
+2024-11-16 09:22:11 ERROR [payment_service] Payment processing failure
+Traceback (most recent call last):
+  File "/app/payment_service.py", line 87, in process_payment
+    amount = payload["transaction"]["amount"]
+KeyError: 'transaction'
+
+Request ID: req-5e6f7a8b
+User ID: user_eve_005
+Payload: {"order_id": "ORD-5513", "currency": "EUR"}

@@ -1,0 +1,62 @@
+{
+  "incident_indexerror": [
+    {
+      "id": "complaint_001",
+      "customer_name": "Alice Johnson",
+      "customer_email": "alice@example.com",
+      "customer_id": "user_alice_001",
+      "message": "Your app keeps crashing when I upload my CSV file! I've tried 3 times and it fails every single time.",
+      "timestamp": "2024-11-15T14:35:00Z",
+      "severity": "high"
+    },
+    {
+      "id": "complaint_002",
+      "customer_name": "Bob Martinez",
+      "customer_email": "bob@example.com",
+      "customer_id": "user_bob_002",
+      "message": "Getting an error every time I submit my data. This is urgent - I have a deadline in 2 hours.",
+      "timestamp": "2024-11-15T14:38:00Z",
+      "severity": "high"
+    },
+    {
+      "id": "complaint_003",
+      "customer_name": "Charlie Wei",
+      "customer_email": "charlie@example.com",
+      "customer_id": "user_charlie_003",
+      "message": "App is completely broken for file uploads. Please fix ASAP!",
+      "timestamp": "2024-11-15T14:40:00Z",
+      "severity": "medium"
+    }
+  ],
+  "incident_keyerror": [
+    {
+      "id": "complaint_004",
+      "customer_name": "Diana Patel",
+      "customer_email": "diana@example.com",
+      "customer_id": "user_diana_004",
+      "message": "Payment keeps failing. I was charged but my order was never placed. This is unacceptable.",
+      "timestamp": "2024-11-16T09:20:00Z",
+      "severity": "critical"
+    },
+    {
+      "id": "complaint_005",
+      "customer_name": "Eve Thompson",
+      "customer_email": "eve@example.com",
+      "customer_id": "user_eve_005",
+      "message": "Tried to checkout 4 times and keep getting an error. My card was charged twice!",
+      "timestamp": "2024-11-16T09:25:00Z",
+      "severity": "critical"
+    }
+  ],
+  "incident_timeout": [
+    {
+      "id": "complaint_006",
+      "customer_name": "Frank Nguyen",
+      "customer_email": "frank@example.com",
+      "customer_id": "user_frank_006",
+      "message": "The app is extremely slow. Pages are taking over 30 seconds to load and sometimes timing out.",
+      "timestamp": "2024-11-17T16:50:00Z",
+      "severity": "high"
+    }
+  ]
+}

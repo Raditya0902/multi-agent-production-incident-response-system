@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+rag/chroma_db/
+.DS_Store
+*.egg-info/
+dist/
+build/
+incidents.db
+*.db

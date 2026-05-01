@@ -1,0 +1,218 @@
+================================================================================
+  MULTI-AGENT INCIDENT RESPONSE SYSTEM — COPY-PASTE TEST CASES
+================================================================================
+  For each test case: paste the ERROR LOGS block into the left text area
+  and the CUSTOMER COMPLAINTS block into the right text area, then click Run.
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 1 — IndexError (Happy Path)
+Expected severity: P1 | Tests pass on attempt 1 | 3 customers
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-15 14:32:01 ERROR [data_processing] Unhandled exception in process_batch
+Traceback (most recent call last):
+  File "/app/data_processing.py", line 42, in process_batch
+    result = items[index]
+IndexError: list index out of range
+
+Request ID: req-7f3a2b1c
+User ID: user_alice_001
+Batch Size: 0
+Input File: uploads/alice_dataset_nov15.csv
+---
+
+CUSTOMER COMPLAINTS:
+---
+Your app keeps crashing when I upload my CSV file! I've tried 3 times and it fails every single time.
+Getting an error every time I submit my data. This is urgent - I have a deadline in 2 hours.
+App is completely broken for file uploads. Please fix ASAP!
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 2 — KeyError / Payment Failure (P0 Critical)
+Expected severity: P0 | Tests pass | 2 customers | Payment keyword triggers critical
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-16 09:15:44 ERROR [payment_service] Payment processing failure
+Traceback (most recent call last):
+  File "/app/payment_service.py", line 87, in process_payment
+    amount = payload["transaction"]["amount"]
+KeyError: 'transaction'
+
+Request ID: req-8a9b3c4d
+User ID: user_diana_004
+Payload: {"order_id": "ORD-5512", "currency": "USD"}
+
+2024-11-16 09:22:11 ERROR [payment_service] Payment processing failure
+Traceback (most recent call last):
+  File "/app/payment_service.py", line 87, in process_payment
+    amount = payload["transaction"]["amount"]
+KeyError: 'transaction'
+
+Request ID: req-5e6f7a8b
+User ID: user_eve_005
+Payload: {"order_id": "ORD-5513", "currency": "EUR"}
+---
+
+CUSTOMER COMPLAINTS:
+---
+Payment keeps failing. I was charged but my order was never placed. This is unacceptable.
+Tried to checkout 4 times and keep getting an error. My card was charged twice!
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 3 — Database Timeout / Connection Pool Exhausted (P1 High)
+Expected severity: P1 | Tests pass | 1 customer | Performance/infra issue
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-17 16:45:22 ERROR [database_service] Query timeout exceeded
+sqlalchemy.exc.TimeoutError: Connection pool timeout after 30s
+  File "/app/database_service.py", line 134, in execute_query
+    result = session.execute(query)
+
+Slow query detected: SELECT * FROM orders WHERE user_id = ? (executed 47 times in 60s)
+Connection pool size: 5/5 (exhausted)
+Queue depth: 23 pending requests
+Missing index on orders(user_id) suspected
+---
+
+CUSTOMER COMPLAINTS:
+---
+The app is extremely slow. Pages are taking over 30 seconds to load and sometimes timing out completely.
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 4 — AttributeError / NoneType (P2 Medium)
+Expected severity: P2 | Tests pass | 1 customer | Low-impact notification bug
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-18 11:04:33 ERROR [notification_service] Failed to send notification
+Traceback (most recent call last):
+  File "/app/notification_service.py", line 78, in send_welcome_email
+    recipient = user_repo.find_by_id(user_id).email
+AttributeError: 'NoneType' object has no attribute 'email'
+
+User ID: user_frank_006
+Event: welcome_email
+Triggered by: signup_flow
+---
+
+CUSTOMER COMPLAINTS:
+---
+I signed up but never received a welcome email. Can you resend it?
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 5 — Mass Outage / Multiple Error Types (P0 Critical)
+Expected severity: P0 | Multiple customers | Tests may retry | Good stress test
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-19 08:00:01 ERROR [api_gateway] Service unavailable
+Traceback (most recent call last):
+  File "/app/api_gateway.py", line 23, in route_request
+    response = service_registry[service_name]
+KeyError: 'user-service'
+
+2024-11-19 08:00:03 ERROR [api_gateway] Service unavailable
+KeyError: 'user-service'
+
+2024-11-19 08:00:07 ERROR [api_gateway] Service unavailable
+KeyError: 'user-service'
+
+Total failed requests in last 60s: 312
+service_registry contents: {'payment-service': '10.0.1.2', 'order-service': '10.0.1.3'}
+user-service appears to have crashed and deregistered itself
+---
+
+CUSTOMER COMPLAINTS:
+---
+I can't log in at all. Getting a server error immediately.
+Nothing works. Login, checkout, everything is down.
+Your entire site is broken right now.
+We can't access the platform. Our whole team is blocked.
+Nothing is loading. Is there an outage?
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 6 — ZeroDivisionError / Analytics Bug (P2 Medium)
+Expected severity: P2 | Tests pass | Affects reporting only, no data loss
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-20 15:22:10 ERROR [analytics_service] Report generation failed
+Traceback (most recent call last):
+  File "/app/analytics_service.py", line 91, in compute_conversion_rate
+    rate = successful_orders / total_sessions
+ZeroDivisionError: division by zero
+
+Report ID: report-nov20-weekly
+Time Range: 2024-11-13 to 2024-11-20
+Total Sessions: 0
+Successful Orders: 47
+Note: session tracking was disabled during maintenance window
+---
+
+CUSTOMER COMPLAINTS:
+---
+My weekly analytics report is broken. It shows an error instead of the conversion data.
+---
+
+
+────────────────────────────────────────────────────────────────────────────────
+TEST CASE 7 — Reject Patch Flow (Human-in-the-Loop Test)
+Expected: Approve panel appears → click Reject → give feedback → new patch generated
+Use this to test the rejection/regeneration cycle specifically.
+────────────────────────────────────────────────────────────────────────────────
+
+ERROR LOGS:
+---
+2024-11-21 10:15:00 ERROR [order_service] Order validation failed
+Traceback (most recent call last):
+  File "/app/order_service.py", line 55, in validate_order
+    if order["items"][0]["quantity"] < 0:
+IndexError: list index out of range
+
+Order ID: ORD-8821
+Customer ID: user_grace_007
+Items in payload: []
+---
+
+CUSTOMER COMPLAINTS:
+---
+I tried to place an order but got an error. My cart showed items but checkout failed.
+---
+
+SUGGESTED REJECTION REASON (paste if you click Reject):
+---
+The fix only checks if the list is empty but doesn't handle the case where quantity could be negative. Please also add a check that all item quantities are positive integers before processing.
+---
+
+
+================================================================================
+  TIPS
+================================================================================
+  • Test Cases 1-4: straightforward happy-path runs, good for demos
+  • Test Case 5: stress test with 5 customers → should trigger P0
+  • Test Case 6: edge case (ZeroDivisionError) — tests RAG retrieval for novel errors
+  • Test Case 7: specifically for testing the Reject → Regenerate flow
+  • Set MAX_RETRY_ATTEMPTS=1 in .env to force escalation quickly for demos
+  • Switch LLM_MODEL=llama-3.1-8b-instant if you hit daily token limits
+================================================================================
