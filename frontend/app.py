@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 from datetime import datetime
 
 import streamlit as st
@@ -15,6 +16,13 @@ from notifications.slack import notify as slack_notify, is_configured as slack_c
 from notifications.github_pr import create_pr, is_configured as github_configured
 
 init_db()
+
+
+def _char_stream(text: str, delay: float = 0.006):
+    """Yield text one character at a time for a streaming display effect."""
+    for ch in text:
+        yield ch
+        time.sleep(delay)
 
 
 SEVERITY_CONFIG = {
@@ -162,6 +170,8 @@ elif phase == "running_phase1":
     for k, label in phase1_labels.items():
         slots[k].markdown(f"⏳ {label}")
 
+    stream_placeholder = st.empty()
+
     try:
         with st.spinner("Diagnosing incident..."):
             for step in phase1_app.stream(state):
@@ -171,6 +181,15 @@ elif phase == "running_phase1":
                 agent_log[node] = elapsed
                 if node in slots:
                     slots[node].success(f"✅ {phase1_labels[node]} ({elapsed}s)")
+
+                if node == "root_cause" and state.get("root_cause"):
+                    with stream_placeholder.container():
+                        st.caption("🔍 Root Cause — streaming")
+                        st.write_stream(_char_stream(state["root_cause"]))
+                elif node == "fix_generator" and state.get("patch_explanation"):
+                    with stream_placeholder.container():
+                        st.caption("🔧 Fix Explanation — streaming")
+                        st.write_stream(_char_stream(state["patch_explanation"]))
 
         st.session_state["hitl_state"] = state
         st.session_state["hitl_agent_log"] = agent_log
@@ -363,6 +382,7 @@ elif phase == "complete":
     }
     for k, label in all_labels.items():
         if k not in agent_log:
+            st.caption(f"⬜ {label} — not triggered")
             continue
         elapsed = agent_log[k]
         t = f" ({elapsed}s)" if isinstance(elapsed, int) else ""
