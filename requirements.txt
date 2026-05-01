@@ -11,3 +11,4 @@ docker>=7.0.0
 torch>=2.0.0
 slack_sdk>=3.0.0
 PyGithub>=2.0.0
+plotly>=5.0.0

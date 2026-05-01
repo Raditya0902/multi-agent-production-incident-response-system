@@ -154,3 +154,28 @@ def delete_all_incidents() -> None:
     init_db()
     with _connect() as conn:
         conn.execute("DELETE FROM incidents")
+
+
+def get_analytics_data() -> list[dict]:
+    """Return lightweight rows for all incidents (oldest first) for dashboard charts."""
+    init_db()
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                id, timestamp, severity, status,
+                tests_passed, escalate_to_human,
+                retry_count, run_time_seconds,
+                affected_customers
+            FROM incidents
+            ORDER BY id ASC
+            """
+        ).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["affected_customers"] = json.loads(d["affected_customers"] or "[]")
+        d["tests_passed"] = bool(d["tests_passed"])
+        d["escalate_to_human"] = bool(d["escalate_to_human"])
+        result.append(d)
+    return result
