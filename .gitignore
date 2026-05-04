@@ -10,3 +10,15 @@ dist/
 build/
 incidents.db
 *.db
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+
+# Benchmark results (local output, not source)
+tests/benchmark/results/
+
+# Scratch / local test payloads
+dry_run_test.json
+
+# IDE
+.vscode/

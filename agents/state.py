@@ -17,6 +17,7 @@ class IncidentState(TypedDict):
     # Root Cause Agent output
     root_cause: str
     relevant_files: List[str]
+    rag_similarity_score: float  # top-1 ChromaDB cosine distance (0=identical, 2=opposite)
 
     # Fix Generator output
     code_patch: str
@@ -25,6 +26,7 @@ class IncidentState(TypedDict):
     # Execution Agent output
     test_results: str
     tests_passed: bool
+    used_real_tests: bool  # True when validated against real repo test suite
 
     # Critic Agent output
     retry_count: int
@@ -51,10 +53,12 @@ def create_initial_state(complaints: List[str], logs: str) -> IncidentState:
         severity_reason="",
         root_cause="",
         relevant_files=[],
+        rag_similarity_score=0.0,
         code_patch="",
         patch_explanation="",
         test_results="",
         tests_passed=False,
+        used_real_tests=False,
         retry_count=0,
         critic_feedback="",
         customer_replies=[],

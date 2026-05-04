@@ -20,7 +20,12 @@ Rules:
 - Keep the fix minimal and surgical
 - The ORIGINAL section must reflect the actual code visible in the error logs
 - The FIXED section must be a drop-in replacement for ORIGINAL
-- Do NOT wrap code in markdown fences inside these sections"""
+- Use the exact variable names, function names, and line numbers from the stack trace
+- Do NOT wrap code in markdown fences inside these sections
+- For None/missing-object errors: prefer an explicit `if x is None:` guard
+- For bounds/index errors: prefer an explicit `if index < len(collection):` check
+- For zero-division errors: prefer an explicit `if denominator == 0:` guard using the exact variable name
+- For missing-key errors: prefer `.get(key)` over try/except"""
 
 
 def fix_generator_agent(state: IncidentState) -> dict:

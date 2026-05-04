@@ -14,3 +14,9 @@ PyGithub>=2.0.0
 plotly>=5.0.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
+pandas>=2.0.0
+
+# Optional fallback LLM providers (install whichever you configure in FALLBACK_LLM_PROVIDER)
+# langchain-google-genai>=2.0.0   # for FALLBACK_LLM_PROVIDER=gemini
+# langchain-openai>=0.2.0         # for FALLBACK_LLM_PROVIDER=openai
+# langchain-anthropic>=0.2.0      # for FALLBACK_LLM_PROVIDER=anthropic

@@ -73,3 +73,22 @@ def retrieve_context(query: str, top_k: int = 3) -> List[str]:
         n_results=min(top_k, collection.count()),
     )
     return results["documents"][0] if results["documents"] else []
+
+
+def retrieve_context_with_scores(query: str, top_k: int = 3) -> List[tuple]:
+    """Return (document, distance) tuples; distance is cosine distance (0=identical, 2=opposite)."""
+    collection = _get_collection()
+    model = get_embedding_model()
+
+    if collection.count() == 0:
+        return []
+
+    query_embedding = model.encode(query).tolist()
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=min(top_k, collection.count()),
+        include=["documents", "distances"],
+    )
+    docs = results["documents"][0] if results["documents"] else []
+    distances = results["distances"][0] if results["distances"] else []
+    return list(zip(docs, distances))

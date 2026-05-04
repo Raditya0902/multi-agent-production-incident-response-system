@@ -1,4 +1,6 @@
+import json
 import os
+import subprocess
 import sys
 from collections import Counter, defaultdict
 
@@ -199,3 +201,74 @@ for sev in ["P0", "P1", "P2"]:
 
 if matrix_rows:
     st.dataframe(matrix_rows, use_container_width=True, hide_index=True)
+
+# ---------------------------------------------------------------------------
+# Benchmark tab (Upgrade 2c)
+# ---------------------------------------------------------------------------
+
+st.divider()
+st.subheader("🧪 Benchmark Evaluation")
+st.caption("Measure pipeline quality against all 7 ground-truth test cases.")
+
+_BENCH_ROOT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tests", "benchmark",
+)
+_LATEST_PATH = os.path.join(_BENCH_ROOT, "results", "latest.json")
+
+bench_col1, bench_col2 = st.columns([3, 1])
+with bench_col2:
+    run_bench = st.button("▶ Run Benchmark", use_container_width=True,
+                          help="Runs all 7 test cases — requires GROQ_API_KEY and may take several minutes.")
+
+if run_bench:
+    with st.spinner("Running benchmark (this may take a few minutes)..."):
+        proc = subprocess.run(
+            [sys.executable, "-m", "tests.benchmark.run_benchmark", "--save-history"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            timeout=600,
+        )
+    if proc.returncode == 0:
+        st.success("Benchmark complete.")
+    else:
+        st.error(f"Benchmark failed (exit {proc.returncode}).")
+    st.code(proc.stdout + proc.stderr, language="text")
+
+if os.path.isfile(_LATEST_PATH):
+    try:
+        with open(_LATEST_PATH, "r", encoding="utf-8") as f:
+            bench_data = json.load(f)
+
+        metrics = bench_data.get("metrics", {})
+        scenarios = bench_data.get("scenarios", [])
+        run_at = bench_data.get("run_at", "unknown")
+
+        st.caption(f"Last run: {run_at}")
+
+        bm1, bm2, bm3, bm4, bm5, bm6 = st.columns(6)
+        bm1.metric("Patch Correctness", f"{metrics.get('patch_correctness_pct', 0):.1f}%")
+        bm2.metric("1st Attempt Success", f"{metrics.get('first_attempt_success_rate', 0):.1f}%")
+        bm3.metric("Retry Success Rate", f"{metrics.get('retry_success_rate', 0):.1f}%")
+        bm4.metric("False Positive Rate", f"{metrics.get('false_positive_rate', 0):.1f}%")
+        bm5.metric("Avg Run Time", f"{metrics.get('avg_run_time_seconds', 0):.1f}s")
+        bm6.metric("Escalation Rate", f"{metrics.get('escalation_rate', 0):.1f}%")
+
+        if scenarios:
+            import pandas as pd
+            df = pd.DataFrame([{
+                "ID": r["id"],
+                "Name": r["name"],
+                "File": r["target_file"],
+                "Pass": "✓" if r["tests_passed"] else ("ESC" if r["escalated"] else "✗"),
+                "Correct": "✓" if r["patch_correct"] else "✗",
+                "False+": "⚠" if r["false_positive"] else "",
+                "Retries": r["retry_count"],
+                "Time (s)": r["elapsed"],
+            } for r in scenarios])
+            st.dataframe(df, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.warning(f"Could not load benchmark results: {e}")
+else:
+    st.info("No benchmark results yet. Click **▶ Run Benchmark** to evaluate the pipeline.")

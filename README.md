@@ -1,25 +1,8 @@
 # Multi-Agent Production Incident Response System
 
-A fully autonomous AI pipeline that detects production incidents, diagnoses the root cause, generates and validates a code fix, drafts personalized customer replies, and opens a GitHub PR — all in under 90 seconds, with a human-in-the-loop approval gate before any fix is applied.
+A fully autonomous AI pipeline that handles production software incidents end-to-end. Paste error logs and customer complaints into the dashboard, click **Run**, and within ~90 seconds the system has diagnosed the root cause, written and tested a code fix, drafted personalized customer replies, sent a Slack notification, and opened a GitHub PR — with a human approval gate before any code is touched.
 
 Built with **LangGraph**, **Groq (Llama 3)**, **ChromaDB RAG**, **Streamlit**, **Slack**, and **GitHub API**.
-
----
-
-## What It Does
-
-When a production incident hits, you paste the error logs and customer complaints into the dashboard and click **Run**. The system then:
-
-1. **Correlates** errors to complaints and identifies affected customers by name
-2. **Classifies severity** (P0 Critical / P1 High / P2 Medium) based on error type, customer count, and keywords
-3. **Diagnoses root cause** using RAG retrieval over a database of past incidents
-4. **Generates a code patch** in a structured format with before/after diffs
-5. **Pauses for human review** — you read the patch and either approve or reject with feedback
-6. **Executes tests** in an isolated sandbox — if tests fail, a Critic Agent analyzes the failure and the Fix Generator retries (up to 3 times)
-7. **Drafts personalized customer replies** for every affected customer
-8. **Generates a postmortem report** in Markdown
-9. **Sends a Slack notification** to your incident channel
-10. **Opens a GitHub PR** with the fix applied to the real source file
 
 ---
 
@@ -29,8 +12,8 @@ When a production incident hits, you paste the error logs and customer complaint
 flowchart TD
     A([🚨 Incident Input\nlogs + complaints]) --> B
 
-    subgraph Phase1["⚙️ Phase 1 — Diagnosis"]
-        B[Correlation Agent\nlinks errors to customers] --> C
+    subgraph Phase1["⚙️ Phase 1 — Diagnosis  (auto)"]
+        B[Correlation Agent\nlinks errors → customer names] --> C
         C[Severity Agent\nP0 / P1 / P2 classification] --> D
         D[Root Cause Agent\nRAG over past incidents] --> E
         E[Fix Generator Agent\ngenerates code patch]
@@ -40,38 +23,74 @@ flowchart TD
 
     subgraph HITL["👤 Human-in-the-Loop Gate"]
         F{Human Review\nApprove or Reject?}
-        F -- Reject + feedback --> E
+        F -- "Reject + feedback" --> E
         F -- Approve --> G
     end
 
-    subgraph Phase2["⚙️ Phase 2 — Execution"]
+    subgraph Phase2["⚙️ Phase 2 — Execution  (auto)"]
         G[Execution Agent\nruns tests in sandbox] --> H
         H{Tests passed?}
-        H -- ✅ Yes --> I[Customer Response Agent\ndrafts replies per customer]
-        H -- ❌ No, retries left --> J[Critic Agent\nanalyzes failure]
-        H -- ❌ No, max retries --> K[🆘 Escalation\nhuman engineer required]
-        J --> E2[Fix Generator Agent\nregenerated patch]
+        H -- "✅ Yes" --> I[Customer Response Agent\ndrafts replies per customer]
+        H -- "❌ No, retries left" --> J[Critic Agent\nanalyzes failure]
+        H -- "❌ No, max retries" --> K[🆘 Escalation\nhuman engineer required]
+        J --> E2[Fix Generator\nregenerated patch]
         E2 --> G
         I --> L[Incident Report Agent\ngenerates postmortem]
     end
 
-    L --> M([💾 Saved to SQLite])
-    L --> N([📣 Slack notification])
-    L --> O([🔗 GitHub PR opened])
+    L --> M([💾 SQLite])
+    L --> N([📣 Slack])
+    L --> O([🔗 GitHub PR])
+    L --> P([📚 RAG re-ingestion])
     K --> M
     K --> N
 ```
 
-### Two-Phase Split
+### How data flows through the system
 
-The pipeline splits into two compiled LangGraph graphs to support the human approval gate without requiring persistent checkpointers:
+**Phase 1 — Diagnosis** runs automatically when you click Run.
+
+1. **Correlation Agent** parses the raw logs and complaint text into a clean `correlated_error` string (e.g. `"IndexError in data_processing.py:42"`) and extracts affected customer names. This structured summary is what every downstream agent works from — not the raw text.
+
+2. **Severity Agent** reads the correlated error, customer count, and keywords (payment, outage, crash, etc.) to assign a P0 / P1 / P2 label with a one-line reason. The label appears as a colored badge throughout the UI.
+
+3. **Root Cause Agent** queries ChromaDB with the correlated error and retrieves the top-3 semantically similar past incidents. It feeds those as context to the LLM alongside the current logs, producing a structured root cause explanation and a list of relevant source files. It also records the cosine distance of the top match as `rag_similarity_score`, which feeds into the confidence score at the approval gate.
+
+4. **Fix Generator Agent** takes the root cause analysis and relevant files and produces a code patch in a delimited format (`===FILE=== / ===ORIGINAL=== / ===FIXED===`). This avoids JSON escaping issues with code. The prompt includes explicit guard-pattern rules (bounds checks, `.get()` calls, `None` guards, zero-division guards) to keep patches minimal and surgical.
+
+**Human-in-the-Loop Gate** pauses the pipeline. You see:
+- A colored severity badge and confidence score (0.0–1.0) built from three signals: RAG similarity, attempt count, and patch scope.
+- A **unified diff view** of the proposed change with surrounding source context.
+- An Approve button (proceeds) or a Reject input (requires written feedback, which becomes `critic_feedback` for the next attempt).
+
+**Phase 2 — Execution** runs automatically after approval.
+
+5. **Execution Agent** first searches the real repository for a matching pytest file (e.g. `tests/test_data_processing.py`). If found, it patches the actual source file in a sandbox and runs the real tests. If not, it falls back to a synthetic harness. A `used_real_tests` flag is stored in state and shown as a banner in the UI.
+
+6. **Critic Agent** (retry path only) reads the failed test output and the patch, and produces structured feedback in a `WHAT FAILED / WHY / NEXT ATTEMPT MUST` format. This feedback is injected into the Fix Generator on the next attempt.
+
+7. **Customer Response Agent** batches all affected customers into a single LLM call using `---CUSTOMER: name---` delimiters, producing a personalized reply for each.
+
+8. **Incident Report Agent** generates a Markdown postmortem. Factual sections (timeline, root cause, fix) are template-filled from state; only recommendations use the LLM.
+
+**Side effects** on success:
+- Incident saved to SQLite with full state
+- Slack Block Kit message sent to `#incidents`
+- GitHub PR opened with the patch applied to the real source file
+- Postmortem document automatically ingested back into ChromaDB — so the system learns from every resolved incident
+
+---
+
+### Two-Phase LangGraph Split
+
+The pipeline is compiled into two separate `StateGraph` objects to support the human gate without requiring a persistent checkpointer:
 
 | Phase | Agents | Trigger |
 |---|---|---|
-| **Phase 1** | Correlation → Severity → Root Cause → Fix Generator | On "Run" click |
-| **Phase 2** | Execution → [Critic → Fix Generator loop] → Customer Response → Incident Report | On "Approve" click |
+| **Phase 1** | Correlation → Severity → Root Cause → Fix Generator | "Run" button |
+| **Phase 2** | Execution → [Critic → Fix Generator loop] → Customer Response → Incident Report | "Approve" button |
 
-Rejection on the approval panel calls `fix_generator_agent()` directly (no full re-run) and stays on the approval screen with the new patch.
+Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) and stays on the approval screen with the updated patch.
 
 ---
 
@@ -79,18 +98,25 @@ Rejection on the approval panel calls `fix_generator_agent()` directly (no full 
 
 - **7 specialized AI agents** orchestrated by LangGraph with a conditional retry loop
 - **RAG retrieval** via ChromaDB + sentence-transformers — past incidents inform the diagnosis
+- **RAG auto-feedback loop** — every resolved incident is ingested back as a new postmortem document
+- **Confidence score** (0.0–1.0) at the approval gate: RAG similarity + attempt count + patch scope
+- **Unified diff view** — side-by-side before/after with surrounding source context at the approval gate
 - **Severity classification** (P0/P1/P2) with reasoning, shown as colored badges throughout the UI
-- **Human-in-the-loop patch approval** — review before any code is executed
+- **Human-in-the-loop patch approval** — review and optionally reject with feedback before execution
 - **Self-healing retry loop** — Critic Agent analyzes test failures and guides regeneration (up to 3 attempts)
+- **Real test file discovery** — Execution Agent uses your actual pytest files when available
 - **Isolated test execution** — patches run in a subprocess sandbox (Docker optional)
 - **Personalized customer replies** — all customers batched into one LLM call
 - **Slack notifications** — rich Block Kit messages with severity color, root cause, customers, and PR link
 - **GitHub PR creation** — branch, commit, and PR opened automatically on test pass
 - **SQLite incident history** — browse, filter by severity, and download postmortems
 - **Analytics dashboard** — severity breakdown, MTTR trends, retry distribution, outcome matrix
+- **Benchmark suite** — run all 7 test cases and track patch correctness, false positive rate, and run time
 - **Webhook API** (FastAPI) — external tools can POST incidents directly on port 8000
+- **Dry run mode** — `?dry_run=true` runs the full pipeline without saving, notifying, or opening a PR
+- **Fallback LLM** — automatically switches to Gemini/OpenAI/Anthropic when Groq daily quota is exhausted
 - **Streaming output** — root cause and fix explanation stream character-by-character as agents complete
-- **Rate limit handling** — exponential backoff (2s → 4s → 8s → 16s) for per-minute limits; clear error for daily quota exhaustion
+- **Rate limit handling** — exponential backoff (2s → 4s → 8s → 16s) for per-minute Groq limits
 - **Docker support** — `docker compose up --build` starts everything with persistent volumes
 
 ---
@@ -117,13 +143,13 @@ Rejection on the approval panel calls `fix_generator_agent()` directly (no full 
 
 ```
 ├── agents/                   # One file per agent
-│   ├── __init__.py           # Lazy LLM singleton with exponential backoff retry
+│   ├── __init__.py           # Lazy LLM singleton, exponential backoff, fallback LLM switcher
 │   ├── state.py              # IncidentState TypedDict + create_initial_state()
 │   ├── correlation_agent.py  # Extracts error summary and customer names from logs
 │   ├── severity_agent.py     # Classifies P0 / P1 / P2 with reasoning
-│   ├── root_cause_agent.py   # RAG-augmented root cause diagnosis
+│   ├── root_cause_agent.py   # RAG-augmented root cause diagnosis; records rag_similarity_score
 │   ├── fix_generator_agent.py# Generates code patches in delimited format
-│   ├── execution_agent.py    # Writes + runs test harness in subprocess/Docker
+│   ├── execution_agent.py    # Real test discovery + subprocess/Docker sandbox runner
 │   ├── critic_agent.py       # Analyzes test failures and guides next attempt
 │   ├── customer_response_agent.py  # Drafts personalized replies (batched)
 │   └── incident_report_agent.py    # Generates Markdown postmortem
@@ -132,9 +158,11 @@ Rejection on the approval panel calls `fix_generator_agent()` directly (no full 
 │   └── workflow.py           # LangGraph graphs: phase1_app, phase2_app, app
 │
 ├── rag/
-│   ├── vectorstore.py        # ChromaDB wrapper — retrieve_context(), add_documents()
-│   ├── ingestion.py          # Ingest past_incidents/*.md into ChromaDB
-│   └── past_incidents/       # 4 Markdown incident knowledge-base files
+│   ├── vectorstore.py        # ChromaDB wrapper — retrieve_context(), retrieve_context_with_scores()
+│   ├── ingestion.py          # Ingest past_incidents/*.md (+ real/ subdir) into ChromaDB
+│   ├── past_incidents/       # Markdown knowledge-base files (synthetic + real/)
+│   └── scripts/
+│       └── fetch_real_postmortems.py  # Fetch real postmortems from danluu/post-mortems
 │
 ├── app/                      # Buggy sample source files (one per test case)
 │   ├── data_processing.py    # IndexError at line 42
@@ -146,30 +174,33 @@ Rejection on the approval panel calls `fix_generator_agent()` directly (no full 
 │   └── database_service.py   # TimeoutError at line 134
 │
 ├── db/
-│   └── history.py            # SQLite CRUD — save, list, get, delete, analytics
+│   └── history.py            # SQLite CRUD — save, list, get, delete, analytics, export_as_postmortem_doc
 │
 ├── notifications/
 │   ├── slack.py              # Block Kit Slack messages (bot token or webhook URL)
-│   └── github_pr.py         # Branch, commit, and PR creation via PyGithub
+│   └── github_pr.py          # Branch, commit, and PR creation via PyGithub
 │
 ├── api/
-│   └── webhook.py            # FastAPI webhook — POST /webhook/incident
+│   └── webhook.py            # FastAPI webhook — POST /webhook/incident[?dry_run=true]
 │
 ├── frontend/
 │   ├── app.py                # Main Streamlit app (5-phase HITL state machine)
 │   └── pages/
 │       ├── 1_History.py      # Incident history with severity filter
-│       └── 2_Analytics.py    # Charts: severity, MTTR, retry distribution
-│
-├── sandbox/
-│   └── Dockerfile            # Isolated container for code execution
+│       └── 2_Analytics.py    # Charts + Benchmark tab
 │
 ├── tests/
 │   ├── conftest.py           # sys.path fixture
 │   ├── test_agents.py        # Patch parser, router logic, RAG, execution sandbox
 │   ├── test_history.py       # SQLite CRUD tests with temp DB isolation
 │   ├── test_slack.py         # Block builder and transport layer tests
-│   └── test_github_pr.py     # Branch naming, patch application, PR body tests
+│   ├── test_github_pr.py     # Branch naming, patch application, PR body tests
+│   └── benchmark/
+│       ├── ground_truth.py   # Expected fix patterns per source file
+│       └── run_benchmark.py  # End-to-end evaluation runner; saves latest.json
+│
+├── sandbox/
+│   └── Dockerfile            # Isolated container for code execution
 │
 ├── data/
 │   ├── sample_logs/          # indexerror_log.txt, keyerror_log.txt, timeout_log.txt
@@ -212,7 +243,7 @@ cp .env.example .env
 
 ```bash
 python -m rag.ingestion
-# Output: "Ingested 4 documents into ChromaDB."
+# Output: "Ingested 4 synthetic + 0 real documents (4 total)"
 ```
 
 ### 4. Run the dashboard
@@ -236,14 +267,9 @@ uvicorn api.webhook:app --port 8000 --reload
 Starts the Streamlit dashboard on **port 8501** and the FastAPI webhook on **port 8000**. ChromaDB and SQLite data persist across restarts in named Docker volumes.
 
 ```bash
-# Build and start everything
-docker compose up --build
-
-# Stop
-docker compose down
-
-# Stop and remove volumes (clears incident history and RAG)
-docker compose down -v
+docker compose up --build   # build and start everything
+docker compose down         # stop
+docker compose down -v      # stop and remove volumes (clears incident history and RAG)
 ```
 
 The entrypoint automatically runs `rag.ingestion` before starting Streamlit, so the RAG knowledge base is always populated.
@@ -271,7 +297,11 @@ Copy `.env.example` to `.env` and fill in the values you need.
 | `GITHUB_TOKEN` | No | — | GitHub PAT with `repo` scope |
 | `GITHUB_REPO` | No | — | Target repo in `owner/name` format |
 | `GITHUB_BASE_BRANCH` | No | `main` | Branch the PR targets |
-| `WEBHOOK_API_KEY` | No | — | API key for the webhook endpoint. Empty = no auth |
+| `WEBHOOK_API_KEY` | No | — | API key for the webhook endpoint. Empty = no auth (dev mode) |
+| `FALLBACK_LLM_PROVIDER` | No | — | `gemini`, `openai`, or `anthropic` — activated automatically on Groq quota exhaustion |
+| `GOOGLE_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=gemini` |
+| `OPENAI_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=openai` |
+| `ANTHROPIC_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=anthropic` |
 
 ---
 
@@ -285,11 +315,34 @@ pytest tests/ -m "not integration" -v
 pytest tests/ -m integration -v
 ```
 
-**63 unit tests** cover:
+Unit tests cover:
 - Patch parser, router logic, execution sandbox (`test_agents.py`)
 - SQLite CRUD with temp DB isolation (`test_history.py`)
 - Slack Block Kit builders and transport layer (`test_slack.py`)
 - GitHub branch naming, patch application, PR body structure (`test_github_pr.py`)
+
+---
+
+## Benchmark
+
+Evaluate the pipeline quality against all 7 ground-truth test cases:
+
+```bash
+python -m tests.benchmark.run_benchmark              # print results table
+python -m tests.benchmark.run_benchmark --save-history  # also append to history.jsonl
+python -m tests.benchmark.run_benchmark --max 3      # run only first 3 (faster)
+```
+
+Results are saved to `tests/benchmark/results/latest.json`. The **Analytics** page in the dashboard also has a Benchmark tab with a "Run Benchmark" button.
+
+| Metric | Description |
+|---|---|
+| `patch_correctness_pct` | % of fixes where the patch contains the ground-truth fix pattern |
+| `first_attempt_success_rate` | % where tests passed on the first attempt (retry_count ≤ 1) |
+| `retry_success_rate` | % of cases that failed attempt 1 but succeeded by attempt 3 |
+| `false_positive_rate` | % where tests passed but patch didn't contain the correct pattern |
+| `avg_run_time_seconds` | Average wall-clock time per scenario |
+| `escalation_rate` | % of cases escalated to human (max retries hit) |
 
 ---
 
@@ -332,11 +385,26 @@ The FastAPI service runs on port 8000 alongside the dashboard.
   "patch_explanation": "Added bounds check to handle empty batch input.",
   "run_time_seconds": 47.3,
   "slack_notified": true,
-  "github_pr_url": "https://github.com/owner/repo/pull/5"
+  "github_pr_url": "https://github.com/owner/repo/pull/5",
+  "dry_run": false,
+  "note": null
 }
 ```
 
 **Authentication:** set `WEBHOOK_API_KEY` in `.env` and pass it as the `X-Api-Key` request header. Leave `WEBHOOK_API_KEY` empty to disable auth in development.
+
+### Dry Run Mode
+
+Add `?dry_run=true` to run the full pipeline without any side effects (no SQLite save, no Slack notification, no GitHub PR). Useful for external monitoring tools that need to evaluate severity or root cause without triggering notifications.
+
+```bash
+curl -X POST "http://localhost:8000/webhook/incident?dry_run=true" \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: your-key" \
+  -d '{"logs": "...", "complaints": ["..."], "source": "datadog"}'
+```
+
+The response includes `"dry_run": true` and `"note": "Dry run — no side effects triggered"`.
 
 Interactive API docs: `http://localhost:8000/docs`
 
@@ -344,7 +412,7 @@ Interactive API docs: `http://localhost:8000/docs`
 
 ## Test Cases
 
-`test_cases.txt` contains 7 ready-to-paste scenarios for the dashboard. Each includes the exact error logs and customer complaints to paste into the two input areas.
+`test_cases.txt` has 7 ready-to-paste scenarios for the dashboard. Each includes the exact error logs and customer complaints.
 
 | # | Scenario | Expected Severity | Highlights |
 |---|---|---|---|
@@ -356,22 +424,40 @@ Interactive API docs: `http://localhost:8000/docs`
 | 6 | ZeroDivisionError — analytics | P2 | Novel error type for RAG retrieval |
 | 7 | Reject → regenerate flow | P2 | Tests the human rejection + patch cycle |
 
-Each test case corresponds to a real buggy source file in `app/` with the bug at the exact line number in the stack trace, so GitHub PRs show clean, mergeable diffs.
+Each scenario maps to a real buggy source file in `app/` with the bug at the exact line in the stack trace, so GitHub PRs show clean, mergeable diffs.
 
 ---
 
-## How Each Agent Works
+## Agent Reference
 
 | Agent | Input | Output | Key design |
 |---|---|---|---|
-| **Correlation** | raw logs + complaints | correlated error, customer names | Strict JSON prompt; regex fallback for malformed responses |
+| **Correlation** | raw logs + complaints | `correlated_error`, customer names | Strict JSON prompt; regex fallback for malformed responses |
 | **Severity** | correlated error, customer count | P0 / P1 / P2 + reason | Rule hierarchy: payment/outage → P0, crash/urgent → P1, else P2 |
-| **Root Cause** | correlated error, logs | root cause, relevant files | Injects top-3 ChromaDB results as numbered past-incident context |
-| **Fix Generator** | root cause, files, critic feedback | code patch (delimited format) | Delimited `===FILE=== ===ORIGINAL=== ===FIXED===` avoids JSON escaping issues |
-| **Execution** | code patch | test results, pass/fail | Generates synthetic pytest harness in temp dir; runs via `sys.executable` |
-| **Critic** | failed test output, patch | structured feedback | Outputs `WHAT FAILED / WHY / NEXT ATTEMPT MUST` to guide regeneration |
-| **Customer Response** | customer names, root cause | reply per customer | Batches all customers in one LLM call using `---CUSTOMER: name---` delimiters |
-| **Incident Report** | all state fields | Markdown postmortem | Template-based for factual sections; LLM only for recommendations |
+| **Root Cause** | correlated error, logs | root cause, relevant files, `rag_similarity_score` | Injects top-3 ChromaDB results; stores top-1 cosine distance for confidence scoring |
+| **Fix Generator** | root cause, files, critic feedback | code patch (delimited) | `===FILE=== ===ORIGINAL=== ===FIXED===` avoids JSON escaping; explicit guard-pattern rules in prompt |
+| **Execution** | code patch | test results, pass/fail, `used_real_tests` | Finds real pytest file first; falls back to synthetic harness with a warning banner |
+| **Critic** | failed test output, patch | structured feedback | `WHAT FAILED / WHY / NEXT ATTEMPT MUST` format to guide regeneration |
+| **Customer Response** | customer names, root cause | reply per customer | All customers in one LLM call using `---CUSTOMER: name---` delimiters |
+| **Incident Report** | full state | Markdown postmortem | Template-filled factual sections; LLM only for recommendations |
+
+### Confidence Score
+
+The HITL approval screen calculates a confidence score (0.0–1.0) from three signals:
+
+| Signal | Max weight | Logic |
+|---|---|---|
+| RAG similarity | 0.40 | `max(0, 1 − cosine_distance) × 0.4` — lower distance = better past-incident match |
+| First-attempt quality | 0.40 | retry 0 → 0.40, retry 1 → 0.20, retry ≥ 2 → 0.00 |
+| Patch scope | 0.20 | diff < 20 lines → 0.20, else 0.00 |
+
+- **≥ 0.8** — green "High confidence" badge
+- **0.5 – 0.8** — yellow "Medium confidence — review carefully"
+- **< 0.5** — red "Low confidence — manual review strongly recommended"
+
+### Fallback LLM
+
+When the Groq daily quota is exhausted the system automatically switches to the configured fallback provider (Gemini, OpenAI, or Anthropic) mid-session — no restart needed. A warning banner appears in the sidebar. Configure via `FALLBACK_LLM_PROVIDER` and the matching API key in `.env`.
 
 ---
 
@@ -381,7 +467,7 @@ Each test case corresponds to a real buggy source file in `app/` with the bug at
 |---|---|---|
 | **Main** | `/` | 5-phase pipeline runner with live agent activity and HITL approval gate |
 | **History** | `/History` | All past runs with severity filter, expandable detail tabs, and postmortem download |
-| **Analytics** | `/Analytics` | Plotly charts: severity breakdown, MTTR trends, retry distribution, outcome matrix |
+| **Analytics** | `/Analytics` | Plotly charts: severity breakdown, MTTR trends, retry distribution, outcome matrix, and benchmark runner |
 
 ---
 

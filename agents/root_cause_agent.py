@@ -4,7 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents import llm
 from agents.state import IncidentState
-from rag.vectorstore import retrieve_context
+from rag.vectorstore import retrieve_context_with_scores
 
 SYSTEM_PROMPT = """You are a senior software engineer performing root cause analysis.
 You are given:
@@ -34,11 +34,14 @@ def _parse_json(text: str) -> dict:
 
 
 def root_cause_agent(state: IncidentState) -> dict:
-    past_incidents = retrieve_context(state["correlated_error"], top_k=3)
+    scored_incidents = retrieve_context_with_scores(state["correlated_error"], top_k=3)
 
+    rag_similarity_score = 0.0
     context_sections = ""
-    for i, doc in enumerate(past_incidents, 1):
+    for i, (doc, distance) in enumerate(scored_incidents, 1):
         context_sections += f"\n--- Past Incident {i} ---\n{doc}\n"
+        if i == 1:
+            rag_similarity_score = float(distance)
 
     human_content = (
         f"Correlated Error Summary:\n{state['correlated_error']}\n\n"
@@ -56,5 +59,6 @@ def root_cause_agent(state: IncidentState) -> dict:
     return {
         "root_cause": parsed.get("root_cause", ""),
         "relevant_files": parsed.get("relevant_files", []),
+        "rag_similarity_score": rag_similarity_score,
         "status": "root_cause_identified",
     }

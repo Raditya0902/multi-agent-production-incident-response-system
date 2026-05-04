@@ -150,6 +150,38 @@ def delete_incident(incident_id: int) -> None:
         conn.execute("DELETE FROM incidents WHERE id = ?", (incident_id,))
 
 
+def export_as_postmortem_doc(incident_id: int) -> str:
+    """Return a markdown string for the incident suitable for RAG ingestion."""
+    incident = get_incident(incident_id)
+    if not incident:
+        return ""
+
+    files = ", ".join(incident.get("relevant_files") or []) or "unknown"
+    customers = ", ".join(incident.get("affected_customers") or []) or "none"
+    outcome = "resolved" if incident.get("tests_passed") else "escalated"
+
+    return f"""# Incident #{incident_id} — {incident.get('correlated_error', 'Unknown error')}
+
+**Date:** {incident.get('timestamp', '')}
+**Severity:** {incident.get('severity', 'P2')}
+**Outcome:** {outcome}
+**Affected files:** {files}
+**Affected customers:** {customers}
+
+## Root Cause
+
+{incident.get('root_cause', 'Not identified.')}
+
+## Fix Applied
+
+{incident.get('patch_explanation', 'No explanation recorded.')}
+
+## Postmortem
+
+{incident.get('postmortem_report', '')}
+"""
+
+
 def delete_all_incidents() -> None:
     init_db()
     with _connect() as conn:

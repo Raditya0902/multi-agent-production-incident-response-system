@@ -1,10 +1,11 @@
+import glob
 import os
 import re
 import sys
 import shutil
 import subprocess
 import tempfile
-from typing import Tuple
+from typing import Optional, Tuple
 
 from agents.state import IncidentState
 
@@ -22,6 +23,54 @@ def parse_code_patch(patch_str: str) -> dict:
         match = re.search(pattern, patch_str, re.DOTALL)
         sections[key.lower()] = match.group(1).strip() if match else ""
     return sections
+
+
+# ---------------------------------------------------------------------------
+# Real test file discovery
+# ---------------------------------------------------------------------------
+
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def find_real_test_file(module_filename: str) -> Optional[str]:
+    """
+    Look for a real pytest file for *module_filename* (e.g. 'data_processing.py').
+    Search order:
+      1. tests/test_<module>.py
+      2. test_<module>.py (project root)
+      3. Any **/test*<stem>* match (recursive)
+    Returns the absolute path or None.
+    """
+    stem = os.path.splitext(os.path.basename(module_filename))[0]
+    candidates = [
+        os.path.join(_PROJECT_ROOT, "tests", f"test_{stem}.py"),
+        os.path.join(_PROJECT_ROOT, f"test_{stem}.py"),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+
+    pattern = os.path.join(_PROJECT_ROOT, "**", f"*test*{stem}*")
+    matches = glob.glob(pattern, recursive=True)
+    if matches:
+        return matches[0]
+    return None
+
+
+def find_source_file(module_filename: str) -> Optional[str]:
+    """Locate the actual source file in the project (checks app/ and project root)."""
+    candidates = [
+        os.path.join(_PROJECT_ROOT, "app", module_filename),
+        os.path.join(_PROJECT_ROOT, module_filename),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    pattern = os.path.join(_PROJECT_ROOT, "**", module_filename)
+    matches = glob.glob(pattern, recursive=True)
+    if matches:
+        return matches[0]
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -60,20 +109,61 @@ def write_test_harness(patch: dict) -> str:
 def _build_fixed_module(fixed_code: str, is_index_error: bool, is_key_error: bool) -> str:
     """
     Build a synthetic fixed module for the test harness.
-    Uses the error type to generate a proper function with correct return semantics.
-    The fixed_code from the LLM informs the logic; we wrap it in a valid function.
+
+    For IndexError/KeyError cases we embed the LLM's actual fixed snippet as the
+    function body — variable names in those snippets reliably match the wrapper
+    signatures (items/index and payload/amount respectively).
+
+    For all other error types the LLM's snippet references context variables
+    (pool, user_repo, order, …) that don't exist in a generic wrapper, so we fall
+    back to a hardcoded correct implementation.  Patch correctness for those cases
+    is evaluated separately via pattern matching, not via test execution.
     """
+    lines = [line.rstrip() for line in fixed_code.splitlines() if line.strip()]
+    has_return = any(line.lstrip().startswith("return ") for line in lines)
+
+    def _indent(code_lines: list) -> str:
+        return "\n".join("    " + ln for ln in code_lines)
+
     if is_index_error:
-        return '''def process_batch(items, index):
-    if index < len(items):
-        return items[index]
-    return None
+        body = _indent(lines)
+        if not has_return:
+            if any("result" in ln for ln in lines):
+                body += "\n    return result"
+            elif any("item" in ln for ln in lines):
+                body += "\n    return item"
+            else:
+                body += "\n    return None"
+        return f'''def process_batch(items, index):
+{body}
 
 
 def get_item(items, index):
     return process_batch(items, index)
 '''
+
     elif is_key_error:
+        # Only use LLM code when it operates on 'payload' (payment-style fixes).
+        # Other KeyError contexts (e.g. route dicts) reference variables not
+        # available in this wrapper, so use the hardcoded fallback.
+        uses_payload = any("payload" in ln for ln in lines)
+        if uses_payload:
+            body = _indent(lines)
+            if not has_return:
+                if any("amount" in ln for ln in lines):
+                    body += "\n    return amount"
+                elif any("result" in ln for ln in lines):
+                    body += "\n    return result"
+                else:
+                    body += "\n    return None"
+            return f'''def process_payment(payload):
+{body}
+
+
+def get_amount(payload):
+    return process_payment(payload)
+'''
+        # Fallback hardcoded KeyError harness
         return '''def process_payment(payload):
     transaction = payload.get("transaction", {})
     amount = transaction.get("amount")
@@ -85,7 +175,9 @@ def get_item(items, index):
 def get_amount(payload):
     return process_payment(payload)
 '''
+
     else:
+        # Context-dependent fix — use hardcoded trivial harness.
         return '''def fixed_function(data):
     if data is None:
         return None
@@ -170,9 +262,9 @@ def should_use_docker() -> bool:
         return False
 
 
-def run_in_subprocess(test_dir: str, timeout: int = 30) -> Tuple[str, bool]:
+def run_in_subprocess(test_dir: str, timeout: int = 30, test_file: str = "test_fix.py") -> Tuple[str, bool]:
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "test_fix.py", "-v", "--tb=short"],
+        [sys.executable, "-m", "pytest", test_file, "-v", "--tb=short"],
         cwd=test_dir,
         capture_output=True,
         text=True,
@@ -182,13 +274,13 @@ def run_in_subprocess(test_dir: str, timeout: int = 30) -> Tuple[str, bool]:
     return output, result.returncode == 0
 
 
-def run_in_docker(test_dir: str) -> Tuple[str, bool]:
+def run_in_docker(test_dir: str, test_file: str = "test_fix.py") -> Tuple[str, bool]:
     try:
         import docker
         client = docker.from_env()
         logs = client.containers.run(
             image="python:3.11-slim",
-            command='bash -c "pip install pytest -q && python -m pytest /app/test_fix.py -v --tb=short"',
+            command=f'bash -c "pip install pytest -q && python -m pytest /app/{test_file} -v --tb=short"',
             volumes={test_dir: {"bind": "/app", "mode": "ro"}},
             remove=True,
             mem_limit="256m",
@@ -198,7 +290,7 @@ def run_in_docker(test_dir: str) -> Tuple[str, bool]:
         passed = "passed" in output and "failed" not in output
         return output, passed
     except Exception as e:
-        return run_in_subprocess(test_dir)
+        return run_in_subprocess(test_dir, test_file=test_file)
 
 
 # ---------------------------------------------------------------------------
@@ -207,19 +299,62 @@ def run_in_docker(test_dir: str) -> Tuple[str, bool]:
 
 def execution_agent(state: IncidentState) -> dict:
     patch = parse_code_patch(state["code_patch"])
-    test_dir = write_test_harness(patch)
+    module_filename = os.path.basename(patch.get("file", ""))
+    used_real_tests = False
+    test_dir = None
+
+    real_test_path = find_real_test_file(module_filename) if module_filename else None
+    source_path = find_source_file(module_filename) if module_filename else None
+
+    if real_test_path:
+        test_dir = tempfile.mkdtemp(prefix="incident_sandbox_")
+        # Copy patched source into sandbox under its original name
+        dest_source_name = module_filename or "module_under_test.py"
+        dest_source = os.path.join(test_dir, dest_source_name)
+        if source_path:
+            # Apply the patch to the real source file
+            with open(source_path, "r", encoding="utf-8") as f:
+                original_content = f.read()
+            original_snippet = patch.get("original", "").strip()
+            fixed_snippet = patch.get("fixed", "").strip()
+            if original_snippet and original_snippet in original_content:
+                patched_content = original_content.replace(original_snippet, fixed_snippet, 1)
+            else:
+                patched_content = original_content + f"\n# --- Suggested fix ---\n{fixed_snippet}\n"
+            with open(dest_source, "w", encoding="utf-8") as f:
+                f.write(patched_content)
+        else:
+            # No source found — write just the fixed snippet
+            with open(dest_source, "w", encoding="utf-8") as f:
+                f.write(patch.get("fixed", "pass"))
+
+        # Copy real test file into sandbox
+        dest_test = os.path.join(test_dir, os.path.basename(real_test_path))
+        shutil.copy2(real_test_path, dest_test)
+        used_real_tests = True
+
+    if not real_test_path:
+        test_dir = write_test_harness(patch)
 
     try:
+        test_file = os.path.basename(real_test_path) if real_test_path else "test_fix.py"
         if should_use_docker():
-            test_results, tests_passed = run_in_docker(test_dir)
+            test_results, tests_passed = run_in_docker(test_dir, test_file=test_file)
         else:
-            test_results, tests_passed = run_in_subprocess(test_dir)
+            test_results, tests_passed = run_in_subprocess(test_dir, test_file=test_file)
     finally:
         shutil.rmtree(test_dir, ignore_errors=True)
+
+    if not used_real_tests:
+        test_results += (
+            "\n⚠️ WARNING: No real test file found. "
+            "Synthetic tests used — results unverified."
+        )
 
     return {
         "test_results": test_results,
         "tests_passed": tests_passed,
+        "used_real_tests": used_real_tests,
         "retry_count": state.get("retry_count", 0) + 1,
         "status": "tests_passed" if tests_passed else "tests_failed",
     }

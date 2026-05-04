@@ -1,3 +1,4 @@
+import difflib
 import json
 import os
 import sys
@@ -10,8 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from graph.workflow import phase1_app, phase2_app
 from agents.fix_generator_agent import fix_generator_agent
+from agents.execution_agent import parse_code_patch
 from agents.state import create_initial_state
-from db.history import save_incident, init_db
+from agents import is_using_fallback
+from db.history import save_incident, init_db, export_as_postmortem_doc
 from notifications.slack import notify as slack_notify, is_configured as slack_configured
 from notifications.github_pr import create_pr, is_configured as github_configured
 
@@ -54,6 +57,90 @@ def _show_pipeline_error(e):
         st.error(f"Pipeline error: {e}")
 
 
+# ---------------------------------------------------------------------------
+# Confidence score (Upgrade 4b)
+# ---------------------------------------------------------------------------
+
+def calculate_confidence(state: dict) -> tuple[float, dict]:
+    """Calculate a 0.0–1.0 confidence score based on three signals."""
+    signals = {}
+
+    # Signal 1: RAG similarity (0–0.4 weight)
+    # ChromaDB cosine distance: 0=identical, 2=opposite → convert to similarity
+    rag_distance = state.get("rag_similarity_score", 1.0)
+    rag_sim = max(0.0, 1.0 - rag_distance)  # 0.0 to 1.0
+    signals["rag_similarity"] = round(rag_sim * 0.4, 3)
+
+    # Signal 2: First attempt vs retry (0–0.4 weight)
+    retry_count = state.get("retry_count", 0)
+    signals["attempt_quality"] = round(max(0.0, 0.4 - retry_count * 0.2), 3)
+
+    # Signal 3: Patch scope (0–0.2 weight) — small targeted diff = higher confidence
+    patch_lines = state.get("code_patch", "").count("\n")
+    signals["patch_scope"] = 0.2 if patch_lines < 20 else 0.0
+
+    total = round(sum(signals.values()), 2)
+    return total, signals
+
+
+# ---------------------------------------------------------------------------
+# Diff rendering (Upgrade 4a)
+# ---------------------------------------------------------------------------
+
+def _render_patch_diff(state: dict) -> None:
+    """Render a unified diff of original vs fixed code with context lines."""
+    patch = parse_code_patch(state.get("code_patch", ""))
+    original = patch.get("original", "").strip()
+    fixed = patch.get("fixed", "").strip()
+    filename = patch.get("file", "unknown")
+
+    if not original or not fixed:
+        st.code(state.get("code_patch", "No patch generated."), language="text")
+        return
+
+    # Try to read surrounding context from app/ source
+    context_before = []
+    context_after = []
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    source_path = os.path.join(root, "app", os.path.basename(filename))
+    if os.path.isfile(source_path):
+        with open(source_path, "r", encoding="utf-8") as f:
+            source_lines = f.readlines()
+        # Find the original snippet in the source
+        orig_lines = original.splitlines()
+        for i, line in enumerate(source_lines):
+            if orig_lines[0].strip() in line:
+                start = max(0, i - 5)
+                end = min(len(source_lines), i + len(orig_lines) + 5)
+                context_before = source_lines[start:i]
+                context_after = source_lines[i + len(orig_lines):end]
+                break
+
+    orig_lines_full = (
+        [l.rstrip("\n") for l in context_before]
+        + original.splitlines()
+        + [l.rstrip("\n") for l in context_after]
+    )
+    fixed_lines_full = (
+        [l.rstrip("\n") for l in context_before]
+        + fixed.splitlines()
+        + [l.rstrip("\n") for l in context_after]
+    )
+
+    diff = list(difflib.unified_diff(
+        orig_lines_full,
+        fixed_lines_full,
+        fromfile=f"a/{filename}",
+        tofile=f"b/{filename}",
+        lineterm="",
+    ))
+
+    if diff:
+        st.code("\n".join(diff), language="diff")
+    else:
+        st.info("No diff generated (original and fixed may be identical).")
+
+
 st.set_page_config(
     page_title="Production Incident Response",
     page_icon="🚨",
@@ -62,6 +149,10 @@ st.set_page_config(
 
 st.title("🚨 Production Incident Response System")
 st.caption("Multi-agent AI pipeline: correlate → diagnose → fix → **human approval** → validate → notify → report")
+
+# Fallback LLM warning (Upgrade 5)
+if is_using_fallback():
+    st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
 
 # ---------------------------------------------------------------------------
 # Session state helpers
@@ -210,6 +301,10 @@ elif phase == "awaiting_approval":
     agent_log = st.session_state["hitl_agent_log"]
     max_retries = int(os.getenv("MAX_RETRY_ATTEMPTS", "3"))
 
+    # Fallback warning
+    if is_using_fallback():
+        st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
+
     # Show completed phase1 agents statically
     st.subheader("Agent Activity")
     phase1_labels = {
@@ -238,14 +333,34 @@ elif phase == "awaiting_approval":
     if rejection_count > 0:
         st.warning(f"This is revised patch #{rejection_count + 1}. Attempts remaining: {attempts_left}")
 
+    # Confidence score (Upgrade 4b)
+    confidence, signals = calculate_confidence(state)
+    if confidence >= 0.8:
+        st.success(f"✅ High confidence fix ({confidence})")
+    elif confidence >= 0.5:
+        st.warning(f"⚠️ Medium confidence ({confidence}) — review carefully")
+    else:
+        st.error(f"🔴 Low confidence ({confidence}) — manual review strongly recommended")
+
+    with st.expander("How was this score calculated?"):
+        st.markdown(
+            f"| Signal | Weight |\n"
+            f"|--------|--------|\n"
+            f"| RAG similarity (past incident match) | `{signals.get('rag_similarity', 0):.3f}` / 0.400 |\n"
+            f"| First-attempt quality | `{signals.get('attempt_quality', 0):.3f}` / 0.400 |\n"
+            f"| Patch scope (small & targeted) | `{signals.get('patch_scope', 0):.3f}` / 0.200 |\n"
+            f"| **Total** | **`{confidence}`** / 1.000 |"
+        )
+
     with st.expander("Root Cause Context", expanded=False):
         st.markdown(state.get("root_cause", "—"))
         files = state.get("relevant_files", [])
         if files:
             st.markdown(f"**Relevant files:** `{'`, `'.join(files)}`")
 
-    st.markdown("**Proposed Patch**")
-    st.code(state.get("code_patch", "No patch generated."), language="text")
+    # Side-by-side diff (Upgrade 4a)
+    st.markdown("**Proposed Patch — Diff View**")
+    _render_patch_diff(state)
 
     explanation = state.get("patch_explanation", "")
     if explanation:
@@ -273,13 +388,11 @@ elif phase == "awaiting_approval":
             if not feedback.strip():
                 st.error("Please provide a rejection reason so the AI can improve the patch.")
                 st.stop()
-            # Inject human feedback and regenerate fix — no LangGraph needed, call directly
             state["critic_feedback"] = f"[Human reviewer rejected this patch]: {feedback.strip()}"
             state["retry_count"] = rejection_count + 1
             updated = fix_generator_agent(state)
             state.update(updated)
             st.session_state["hitl_state"] = state
-            # Stay in awaiting_approval with new patch
             st.rerun()
 
     with col_cancel:
@@ -344,12 +457,29 @@ elif phase == "running_phase2":
         incident_id = save_incident(state, total_time)
         slack_sent = slack_notify(state, total_time, incident_id)
         pr_url = create_pr(state, incident_id)
+
+        # Upgrade 3c: add resolved incident to RAG knowledge base
+        if state.get("tests_passed") and not state.get("escalate_to_human"):
+            try:
+                from rag.vectorstore import add_documents
+                doc_text = export_as_postmortem_doc(incident_id)
+                if doc_text:
+                    add_documents([{
+                        "id": f"incident_{incident_id}",
+                        "content": doc_text,
+                        "metadata": {"source": "auto_feedback", "incident_id": str(incident_id)},
+                    }])
+                    st.session_state["_rag_ingested"] = True
+            except Exception:
+                st.session_state["_rag_ingested"] = False
+
         st.session_state["hitl_state"] = state
         st.session_state["hitl_agent_log"] = agent_log
         st.session_state["last_result"] = state
         st.session_state["run_time"] = total_time
         st.session_state["slack_notified"] = slack_sent
         st.session_state["github_pr_url"] = pr_url
+        st.session_state["incident_id"] = incident_id
         st.session_state["hitl_phase"] = "complete"
         st.rerun()
 
@@ -366,6 +496,14 @@ elif phase == "complete":
     state = st.session_state["hitl_state"]
     agent_log = st.session_state["hitl_agent_log"]
     run_time = st.session_state.get("run_time", 0)
+
+    # Fallback warning
+    if is_using_fallback():
+        st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
+
+    # Upgrade 3c toast
+    if st.session_state.pop("_rag_ingested", None):
+        st.toast("📚 Incident added to RAG knowledge base")
 
     # Full agent activity log (static)
     st.subheader("Agent Activity")
@@ -448,6 +586,12 @@ elif phase == "complete":
             st.markdown(f"**Explanation:** {state['patch_explanation']}")
 
     with tab3:
+        # Upgrade 1: show validation banner
+        if state.get("used_real_tests"):
+            st.success("✅ Validated against real repository test suite.")
+        else:
+            st.warning("⚠️ These tests were synthetically generated. Results are indicative only.")
+
         st.code(state.get("test_results", "No test output."), language="text")
         if state.get("escalate_to_human"):
             st.error("Max retries exceeded — escalated to human engineer.")
@@ -473,5 +617,3 @@ elif phase == "complete":
             )
         else:
             st.write("No report generated.")
-
-
