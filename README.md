@@ -335,6 +335,31 @@ python -m tests.benchmark.run_benchmark --max 3      # run only first 3 (faster)
 
 Results are saved to `tests/benchmark/results/latest.json`. The **Analytics** page in the dashboard also has a Benchmark tab with a "Run Benchmark" button.
 
+### Results (Groq `llama-3.3-70b-versatile`, 7 test cases)
+
+| Metric | Result |
+|---|---|
+| Patch correctness | **100.0%** — all 7 patches contained the correct fix pattern |
+| First-attempt success rate | **71.4%** — 5 of 7 cases passed without needing a retry |
+| Retry success rate | **100.0%** — the 2 cases that needed retries all resolved by attempt 3 |
+| False positive rate | **0.0%** — no case where tests passed but the patch was wrong |
+| Avg run time | **41.1s** per scenario end-to-end |
+| Escalation rate | **0.0%** — no case hit max retries |
+
+Per-scenario breakdown:
+
+| # | Scenario | Pass | Correct | Retries | Time |
+|---|---|---|---|---|---|
+| 1 | IndexError — file upload crash | ✓ | ✓ | 3 | 97.2s |
+| 2 | KeyError — payment failure | ✓ | ✓ | 2 | 41.4s |
+| 3 | TimeoutError — DB pool exhausted | ✓ | ✓ | 1 | 48.1s |
+| 4 | AttributeError — NoneType on user | ✓ | ✓ | 1 | 33.1s |
+| 5 | Mass outage — api_gateway KeyError | ✓ | ✓ | 1 | 2.8s |
+| 6 | ZeroDivisionError — analytics | ✓ | ✓ | 1 | 32.9s |
+| 7 | IndexError — order validation | ✓ | ✓ | 1 | 32.2s |
+
+### Metric definitions
+
 | Metric | Description |
 |---|---|
 | `patch_correctness_pct` | % of fixes where the patch contains the ground-truth fix pattern |
