@@ -28,6 +28,10 @@ pytest tests/test_agents.py -v         # Single test file
 # Benchmark (7 end-to-end scenarios against ground truth)
 python -m tests.benchmark.run_benchmark
 python -m tests.benchmark.run_benchmark --max 3  # Faster subset
+
+# Export benchmark results as Markdown
+python scripts/export_benchmark_report.py
+python scripts/export_benchmark_report.py --output docs/benchmark-results.generated.md
 ```
 
 ## Architecture
@@ -102,6 +106,19 @@ Parsed by regex in the execution agent.
 ### Execution Sandbox
 
 Execution Agent discovers real test files using glob patterns (`tests/test_<module>.py`, `test_<module>.py`, `**/test*<stem>*`). Falls back to a synthetic harness if none found. Runs via subprocess by default; set `SANDBOX_MODE=docker` for container isolation.
+
+## Troubleshooting
+
+**`KeyError: '_type'` from ChromaDB during tests or startup**
+
+The on-disk ChromaDB database (`rag/chroma_db/`) was created with an older ChromaDB version (≤ 0.5.x) that didn't store a `_type` field in the collection config. ChromaDB 0.6+ expects it. Fix by deleting and rebuilding — the markdown files in `rag/past_incidents/` are the source of truth, so nothing is lost:
+
+```bash
+rm -rf rag/chroma_db
+python -m rag.ingestion
+```
+
+---
 
 ## Key Environment Variables
 

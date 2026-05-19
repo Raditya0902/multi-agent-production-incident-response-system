@@ -6,6 +6,45 @@ Built with **LangGraph**, **Groq (Llama 3)**, **ChromaDB RAG**, **Streamlit**, *
 
 ---
 
+## Why This Project Exists
+
+Production incidents require a coordinated sequence of actions that are easy to get wrong under pressure: correlating error logs with customer reports, classifying severity, diagnosing root cause, writing a targeted fix, running tests, notifying stakeholders, and producing a postmortem. Done manually, each step takes minutes; together they can stretch to hours.
+
+This project tests whether a multi-agent AI system can safely complete the full incident-response loop — with a human approval gate before any code is executed — in under two minutes on realistic scenarios.
+
+The design prioritizes **correctness over speed**: every code change requires explicit human review and a passing test suite before it is committed. Automation handles the toil; humans retain control of the decision.
+
+---
+
+## Demo
+
+![Pipeline Architecture](docs/assets/architecture.png)
+
+### HITL Approval Gate
+![HITL approval gate — confidence score and unified diff](docs/assets/hitl-gate.png)
+
+### Tests Passing in Sandbox
+![Execution Agent — tests passed](docs/assets/tests-passed.png)
+
+### Auto-Generated GitHub PR
+![Auto-generated GitHub PR](docs/assets/github-pr.png)
+
+### Slack Notification
+![Slack Block Kit notification](docs/assets/slack-notification.png)
+
+### Analytics Dashboard
+![Analytics dashboard — severity breakdown and MTTR trends](docs/assets/analytics-dashboard.png)
+
+| Artifact | Link |
+|---|---|
+| Benchmark results | [`docs/benchmark-results.md`](docs/benchmark-results.md) |
+| Sample run trace | [`docs/sample-run-trace.md`](docs/sample-run-trace.md) |
+| Sample generated PR | [`docs/sample-generated-pr.md`](docs/sample-generated-pr.md) |
+| Demo walkthrough script | [`docs/demo.md`](docs/demo.md) |
+| Limitations & failure modes | [`docs/limitations.md`](docs/limitations.md) |
+
+---
+
 ## Pipeline Architecture
 
 ```mermaid
@@ -91,6 +130,9 @@ The pipeline is compiled into two separate `StateGraph` objects to support the h
 | **Phase 2** | Execution → [Critic → Fix Generator loop] → Customer Response → Incident Report | "Approve" button |
 
 Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) and stays on the approval screen with the updated patch.
+
+> For a worked example trace through the full pipeline, see [`docs/sample-run-trace.md`](docs/sample-run-trace.md).
+> For benchmark methodology and full results, see [`docs/benchmark-results.md`](docs/benchmark-results.md).
 
 ---
 
@@ -369,6 +411,31 @@ Per-scenario breakdown:
 | `avg_run_time_seconds` | Average wall-clock time per scenario |
 | `escalation_rate` | % of cases escalated to human (max retries hit) |
 
+### Reproduce the Benchmark
+
+These results are reproducible. To run the full benchmark yourself:
+
+```bash
+# Requires GROQ_API_KEY set in .env
+python -m tests.benchmark.run_benchmark
+python -m tests.benchmark.run_benchmark --save-history
+cat tests/benchmark/results/latest.json
+```
+
+Or with Docker:
+
+```bash
+docker compose run --rm app python -m tests.benchmark.run_benchmark
+```
+
+Expected results on `llama-3.3-70b-versatile`:
+- **100.0%** patch correctness
+- **0.0%** false positives
+- **0.0%** escalation rate
+- ~**41s** average runtime per scenario
+
+> These are reported results from a controlled benchmark, not universal correctness guarantees. See [`docs/limitations.md`](docs/limitations.md).
+
 ---
 
 ## Webhook API
@@ -493,6 +560,22 @@ When the Groq daily quota is exhausted the system automatically switches to the 
 | **Main** | `/` | 5-phase pipeline runner with live agent activity and HITL approval gate |
 | **History** | `/History` | All past runs with severity filter, expandable detail tabs, and postmortem download |
 | **Analytics** | `/Analytics` | Plotly charts: severity breakdown, MTTR trends, retry distribution, outcome matrix, and benchmark runner |
+
+---
+
+## Limitations
+
+This project is a research prototype demonstrating multi-agent incident response on controlled scenarios.
+
+Key caveats:
+- The benchmark uses **7 fixed scenarios** with known ground-truth fixes — not arbitrary production codebases.
+- Patch correctness is evaluated against **pattern matches in `ground_truth.py`**, not semantic correctness.
+- The synthetic test fallback (when no real pytest file exists) is less reliable than running your actual test suite.
+- LLM output varies across providers and models; rate-limit fallback to smaller models can reduce reliability.
+- Human approval is **required** before any code is executed — the system does not self-deploy.
+- Production deployment would need stronger sandboxing, access controls, and policy guardrails.
+
+See [`docs/limitations.md`](docs/limitations.md) for the full discussion.
 
 ---
 

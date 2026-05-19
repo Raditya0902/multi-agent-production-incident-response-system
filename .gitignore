@@ -22,3 +22,6 @@ dry_run_test.json
 
 # IDE
 .vscode/
+
+# Internal task tracking (not for public repo)
+dev/
