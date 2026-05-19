@@ -19,69 +19,36 @@ The design prioritizes **correctness over speed**: every code change requires ex
 ## Demo
 
 ### HITL Approval Gate
+
 ![HITL approval gate — confidence score and unified diff](docs/assets/hitl-gate.png)
 
 ### Tests Passing in Sandbox
+
 ![Execution Agent — tests passed](docs/assets/tests-passed.png)
 
 ### Auto-Generated GitHub PR
+
 ![Auto-generated GitHub PR](docs/assets/github-pr.png)
 
 ### Slack Notification
+
 ![Slack Block Kit notification](docs/assets/slack-notification.png)
 
 ### Analytics Dashboard
+
 ![Analytics dashboard — severity breakdown and MTTR trends](docs/assets/analytics-dashboard.png)
 
-| Artifact | Link |
-|---|---|
-| Benchmark results | [`docs/benchmark-results.md`](docs/benchmark-results.md) |
-| Sample run trace | [`docs/sample-run-trace.md`](docs/sample-run-trace.md) |
-| Sample generated PR | [`docs/sample-generated-pr.md`](docs/sample-generated-pr.md) |
-| Demo walkthrough script | [`docs/demo.md`](docs/demo.md) |
-| Limitations & failure modes | [`docs/limitations.md`](docs/limitations.md) |
+| Artifact                    | Link                                                         |
+| --------------------------- | ------------------------------------------------------------ |
+| Benchmark results           | [`docs/benchmark-results.md`](docs/benchmark-results.md)     |
+| Sample run trace            | [`docs/sample-run-trace.md`](docs/sample-run-trace.md)       |
+| Sample generated PR         | [`docs/sample-generated-pr.md`](docs/sample-generated-pr.md) |
+| Demo walkthrough script     | [`docs/demo.md`](docs/demo.md)                               |
+| Limitations & failure modes | [`docs/limitations.md`](docs/limitations.md)                 |
 
 ---
 
 ## Pipeline Architecture
-
-```mermaid
-flowchart TD
-    A([🚨 Incident Input\nlogs + complaints]) --> B
-
-    subgraph Phase1["⚙️ Phase 1 — Diagnosis  (auto)"]
-        B[Correlation Agent\nlinks errors → customer names] --> C
-        C[Severity Agent\nP0 / P1 / P2 classification] --> D
-        D[Root Cause Agent\nRAG over past incidents] --> E
-        E[Fix Generator Agent\ngenerates code patch]
-    end
-
-    E --> F
-
-    subgraph HITL["👤 Human-in-the-Loop Gate"]
-        F{Human Review\nApprove or Reject?}
-        F -- "Reject + feedback" --> E
-        F -- Approve --> G
-    end
-
-    subgraph Phase2["⚙️ Phase 2 — Execution  (auto)"]
-        G[Execution Agent\nruns tests in sandbox] --> H
-        H{Tests passed?}
-        H -- "✅ Yes" --> I[Customer Response Agent\ndrafts replies per customer]
-        H -- "❌ No, retries left" --> J[Critic Agent\nanalyzes failure]
-        H -- "❌ No, max retries" --> K[🆘 Escalation\nhuman engineer required]
-        J --> E2[Fix Generator\nregenerated patch]
-        E2 --> G
-        I --> L[Incident Report Agent\ngenerates postmortem]
-    end
-
-    L --> M([💾 SQLite])
-    L --> N([📣 Slack])
-    L --> O([🔗 GitHub PR])
-    L --> P([📚 RAG re-ingestion])
-    K --> M
-    K --> N
-```
 
 ![Pipeline Architecture](docs/assets/architecture.png)
 
@@ -98,6 +65,7 @@ flowchart TD
 4. **Fix Generator Agent** takes the root cause analysis and relevant files and produces a code patch in a delimited format (`===FILE=== / ===ORIGINAL=== / ===FIXED===`). This avoids JSON escaping issues with code. The prompt includes explicit guard-pattern rules (bounds checks, `.get()` calls, `None` guards, zero-division guards) to keep patches minimal and surgical.
 
 **Human-in-the-Loop Gate** pauses the pipeline. You see:
+
 - A colored severity badge and confidence score (0.0–1.0) built from three signals: RAG similarity, attempt count, and patch scope.
 - A **unified diff view** of the proposed change with surrounding source context.
 - An Approve button (proceeds) or a Reject input (requires written feedback, which becomes `critic_feedback` for the next attempt).
@@ -113,6 +81,7 @@ flowchart TD
 8. **Incident Report Agent** generates a Markdown postmortem. Factual sections (timeline, root cause, fix) are template-filled from state; only recommendations use the LLM.
 
 **Side effects** on success:
+
 - Incident saved to SQLite with full state
 - Slack Block Kit message sent to `#incidents`
 - GitHub PR opened with the patch applied to the real source file
@@ -124,9 +93,9 @@ flowchart TD
 
 The pipeline is compiled into two separate `StateGraph` objects to support the human gate without requiring a persistent checkpointer:
 
-| Phase | Agents | Trigger |
-|---|---|---|
-| **Phase 1** | Correlation → Severity → Root Cause → Fix Generator | "Run" button |
+| Phase       | Agents                                                                          | Trigger          |
+| ----------- | ------------------------------------------------------------------------------- | ---------------- |
+| **Phase 1** | Correlation → Severity → Root Cause → Fix Generator                             | "Run" button     |
 | **Phase 2** | Execution → [Critic → Fix Generator loop] → Customer Response → Incident Report | "Approve" button |
 
 Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) and stays on the approval screen with the updated patch.
@@ -165,19 +134,19 @@ Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) a
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Agent orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) |
-| LLM | [Groq API](https://console.groq.com/) — `llama-3.3-70b-versatile` (or `llama-3.1-8b-instant`) |
-| RAG vector store | [ChromaDB](https://www.trychroma.com/) + `sentence-transformers/all-MiniLM-L6-v2` |
-| Frontend | [Streamlit](https://streamlit.io/) |
-| Webhook API | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/) |
-| Notifications | [slack-sdk](https://slack.dev/python-slack-sdk/) |
-| GitHub integration | [PyGithub](https://pygithub.readthedocs.io/) |
-| Analytics charts | [Plotly](https://plotly.com/python/) |
-| Persistence | SQLite (stdlib `sqlite3`) |
-| Testing | [pytest](https://pytest.org/) |
-| Containerization | Docker + Docker Compose |
+| Layer               | Technology                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| Agent orchestration | [LangGraph](https://github.com/langchain-ai/langgraph)                                        |
+| LLM                 | [Groq API](https://console.groq.com/) — `llama-3.3-70b-versatile` (or `llama-3.1-8b-instant`) |
+| RAG vector store    | [ChromaDB](https://www.trychroma.com/) + `sentence-transformers/all-MiniLM-L6-v2`             |
+| Frontend            | [Streamlit](https://streamlit.io/)                                                            |
+| Webhook API         | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/)                |
+| Notifications       | [slack-sdk](https://slack.dev/python-slack-sdk/)                                              |
+| GitHub integration  | [PyGithub](https://pygithub.readthedocs.io/)                                                  |
+| Analytics charts    | [Plotly](https://plotly.com/python/)                                                          |
+| Persistence         | SQLite (stdlib `sqlite3`)                                                                     |
+| Testing             | [pytest](https://pytest.org/)                                                                 |
+| Containerization    | Docker + Docker Compose                                                                       |
 
 ---
 
@@ -322,28 +291,28 @@ The entrypoint automatically runs `rag.ingestion` before starting Streamlit, so 
 
 Copy `.env.example` to `.env` and fill in the values you need.
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `GROQ_API_KEY` | ✅ Yes | — | Groq API key from [console.groq.com](https://console.groq.com/) |
-| `LLM_MODEL` | No | `llama-3.3-70b-versatile` | Groq model. Use `llama-3.1-8b-instant` for higher rate limits |
-| `GROQ_TEMPERATURE` | No | `0.2` | LLM temperature (0–1) |
-| `GROQ_MAX_TOKENS` | No | `4096` | Max tokens per LLM call |
-| `MAX_RETRY_ATTEMPTS` | No | `3` | Max fix retries before escalation. Set to `1` for fast demos |
-| `SANDBOX_MODE` | No | `subprocess` | `subprocess` or `docker` for test execution |
-| `INCIDENT_DB_PATH` | No | `./incidents.db` | SQLite database path |
-| `CHROMA_PERSIST_DIR` | No | `./rag/chroma_db` | ChromaDB persistence directory |
-| `SLACK_BOT_TOKEN` | No | — | Slack bot token (`xoxb-...`). Needs `chat:write` scope |
-| `SLACK_WEBHOOK_URL` | No | — | Slack incoming webhook URL (alternative to bot token) |
-| `SLACK_INCIDENT_CHANNEL` | No | `#incidents` | Channel for resolved incident notifications |
-| `SLACK_ESCALATION_CHANNEL` | No | Same as above | Channel for escalation alerts |
-| `GITHUB_TOKEN` | No | — | GitHub PAT with `repo` scope |
-| `GITHUB_REPO` | No | — | Target repo in `owner/name` format |
-| `GITHUB_BASE_BRANCH` | No | `main` | Branch the PR targets |
-| `WEBHOOK_API_KEY` | No | — | API key for the webhook endpoint. Empty = no auth (dev mode) |
-| `FALLBACK_LLM_PROVIDER` | No | — | `gemini`, `openai`, or `anthropic` — activated automatically on Groq quota exhaustion |
-| `GOOGLE_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=gemini` |
-| `OPENAI_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=openai` |
-| `ANTHROPIC_API_KEY` | No | — | Required when `FALLBACK_LLM_PROVIDER=anthropic` |
+| Variable                   | Required | Default                   | Description                                                                           |
+| -------------------------- | -------- | ------------------------- | ------------------------------------------------------------------------------------- |
+| `GROQ_API_KEY`             | ✅ Yes   | —                         | Groq API key from [console.groq.com](https://console.groq.com/)                       |
+| `LLM_MODEL`                | No       | `llama-3.3-70b-versatile` | Groq model. Use `llama-3.1-8b-instant` for higher rate limits                         |
+| `GROQ_TEMPERATURE`         | No       | `0.2`                     | LLM temperature (0–1)                                                                 |
+| `GROQ_MAX_TOKENS`          | No       | `4096`                    | Max tokens per LLM call                                                               |
+| `MAX_RETRY_ATTEMPTS`       | No       | `3`                       | Max fix retries before escalation. Set to `1` for fast demos                          |
+| `SANDBOX_MODE`             | No       | `subprocess`              | `subprocess` or `docker` for test execution                                           |
+| `INCIDENT_DB_PATH`         | No       | `./incidents.db`          | SQLite database path                                                                  |
+| `CHROMA_PERSIST_DIR`       | No       | `./rag/chroma_db`         | ChromaDB persistence directory                                                        |
+| `SLACK_BOT_TOKEN`          | No       | —                         | Slack bot token (`xoxb-...`). Needs `chat:write` scope                                |
+| `SLACK_WEBHOOK_URL`        | No       | —                         | Slack incoming webhook URL (alternative to bot token)                                 |
+| `SLACK_INCIDENT_CHANNEL`   | No       | `#incidents`              | Channel for resolved incident notifications                                           |
+| `SLACK_ESCALATION_CHANNEL` | No       | Same as above             | Channel for escalation alerts                                                         |
+| `GITHUB_TOKEN`             | No       | —                         | GitHub PAT with `repo` scope                                                          |
+| `GITHUB_REPO`              | No       | —                         | Target repo in `owner/name` format                                                    |
+| `GITHUB_BASE_BRANCH`       | No       | `main`                    | Branch the PR targets                                                                 |
+| `WEBHOOK_API_KEY`          | No       | —                         | API key for the webhook endpoint. Empty = no auth (dev mode)                          |
+| `FALLBACK_LLM_PROVIDER`    | No       | —                         | `gemini`, `openai`, or `anthropic` — activated automatically on Groq quota exhaustion |
+| `GOOGLE_API_KEY`           | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=gemini`                                          |
+| `OPENAI_API_KEY`           | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=openai`                                          |
+| `ANTHROPIC_API_KEY`        | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=anthropic`                                       |
 
 ---
 
@@ -358,6 +327,7 @@ pytest tests/ -m integration -v
 ```
 
 Unit tests cover:
+
 - Patch parser, router logic, execution sandbox (`test_agents.py`)
 - SQLite CRUD with temp DB isolation (`test_history.py`)
 - Slack Block Kit builders and transport layer (`test_slack.py`)
@@ -379,37 +349,37 @@ Results are saved to `tests/benchmark/results/latest.json`. The **Analytics** pa
 
 ### Results (Groq `llama-3.3-70b-versatile`, 7 test cases)
 
-| Metric | Result |
-|---|---|
-| Patch correctness | **100.0%** — all 7 patches contained the correct fix pattern |
-| First-attempt success rate | **71.4%** — 5 of 7 cases passed without needing a retry |
-| Retry success rate | **100.0%** — the 2 cases that needed retries all resolved by attempt 3 |
-| False positive rate | **0.0%** — no case where tests passed but the patch was wrong |
-| Avg run time | **41.1s** per scenario end-to-end |
-| Escalation rate | **0.0%** — no case hit max retries |
+| Metric                     | Result                                                                 |
+| -------------------------- | ---------------------------------------------------------------------- |
+| Patch correctness          | **100.0%** — all 7 patches contained the correct fix pattern           |
+| First-attempt success rate | **71.4%** — 5 of 7 cases passed without needing a retry                |
+| Retry success rate         | **100.0%** — the 2 cases that needed retries all resolved by attempt 3 |
+| False positive rate        | **0.0%** — no case where tests passed but the patch was wrong          |
+| Avg run time               | **41.1s** per scenario end-to-end                                      |
+| Escalation rate            | **0.0%** — no case hit max retries                                     |
 
 Per-scenario breakdown:
 
-| # | Scenario | Pass | Correct | Retries | Time |
-|---|---|---|---|---|---|
-| 1 | IndexError — file upload crash | ✓ | ✓ | 3 | 97.2s |
-| 2 | KeyError — payment failure | ✓ | ✓ | 2 | 41.4s |
-| 3 | TimeoutError — DB pool exhausted | ✓ | ✓ | 1 | 48.1s |
-| 4 | AttributeError — NoneType on user | ✓ | ✓ | 1 | 33.1s |
-| 5 | Mass outage — api_gateway KeyError | ✓ | ✓ | 1 | 2.8s |
-| 6 | ZeroDivisionError — analytics | ✓ | ✓ | 1 | 32.9s |
-| 7 | IndexError — order validation | ✓ | ✓ | 1 | 32.2s |
+| #   | Scenario                           | Pass | Correct | Retries | Time  |
+| --- | ---------------------------------- | ---- | ------- | ------- | ----- |
+| 1   | IndexError — file upload crash     | ✓    | ✓       | 3       | 97.2s |
+| 2   | KeyError — payment failure         | ✓    | ✓       | 2       | 41.4s |
+| 3   | TimeoutError — DB pool exhausted   | ✓    | ✓       | 1       | 48.1s |
+| 4   | AttributeError — NoneType on user  | ✓    | ✓       | 1       | 33.1s |
+| 5   | Mass outage — api_gateway KeyError | ✓    | ✓       | 1       | 2.8s  |
+| 6   | ZeroDivisionError — analytics      | ✓    | ✓       | 1       | 32.9s |
+| 7   | IndexError — order validation      | ✓    | ✓       | 1       | 32.2s |
 
 ### Metric definitions
 
-| Metric | Description |
-|---|---|
-| `patch_correctness_pct` | % of fixes where the patch contains the ground-truth fix pattern |
-| `first_attempt_success_rate` | % where tests passed on the first attempt (retry_count ≤ 1) |
-| `retry_success_rate` | % of cases that failed attempt 1 but succeeded by attempt 3 |
-| `false_positive_rate` | % where tests passed but patch didn't contain the correct pattern |
-| `avg_run_time_seconds` | Average wall-clock time per scenario |
-| `escalation_rate` | % of cases escalated to human (max retries hit) |
+| Metric                       | Description                                                       |
+| ---------------------------- | ----------------------------------------------------------------- |
+| `patch_correctness_pct`      | % of fixes where the patch contains the ground-truth fix pattern  |
+| `first_attempt_success_rate` | % where tests passed on the first attempt (retry_count ≤ 1)       |
+| `retry_success_rate`         | % of cases that failed attempt 1 but succeeded by attempt 3       |
+| `false_positive_rate`        | % where tests passed but patch didn't contain the correct pattern |
+| `avg_run_time_seconds`       | Average wall-clock time per scenario                              |
+| `escalation_rate`            | % of cases escalated to human (max retries hit)                   |
 
 ### Reproduce the Benchmark
 
@@ -429,6 +399,7 @@ docker compose run --rm app python -m tests.benchmark.run_benchmark
 ```
 
 Expected results on `llama-3.3-70b-versatile`:
+
 - **100.0%** patch correctness
 - **0.0%** false positives
 - **0.0%** escalation rate
@@ -444,14 +415,15 @@ The FastAPI service runs on port 8000 alongside the dashboard.
 
 ### Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Health check |
+| Method | Path                | Description               |
+| ------ | ------------------- | ------------------------- |
+| `GET`  | `/health`           | Health check              |
 | `POST` | `/webhook/incident` | Trigger the full pipeline |
 
 ### POST /webhook/incident
 
 **Request body:**
+
 ```json
 {
   "logs": "2024-11-15 14:32:01 ERROR [data_processing] ...\nIndexError: list index out of range",
@@ -464,6 +436,7 @@ The FastAPI service runs on port 8000 alongside the dashboard.
 ```
 
 **Response:**
+
 ```json
 {
   "incident_id": 12,
@@ -506,15 +479,15 @@ Interactive API docs: `http://localhost:8000/docs`
 
 `test_cases.txt` has 7 ready-to-paste scenarios for the dashboard. Each includes the exact error logs and customer complaints.
 
-| # | Scenario | Expected Severity | Highlights |
-|---|---|---|---|
-| 1 | IndexError — file upload crash | P1 | Happy path, passes on first attempt |
-| 2 | KeyError — payment failure | P0 | Payment keyword triggers critical; 2 customers |
-| 3 | DB timeout — connection pool | P1 | Infrastructure/performance issue |
-| 4 | AttributeError — welcome email | P2 | Non-critical notification bug |
-| 5 | Mass outage — service down | P0 | 5 customers, stress test |
-| 6 | ZeroDivisionError — analytics | P2 | Novel error type for RAG retrieval |
-| 7 | Reject → regenerate flow | P2 | Tests the human rejection + patch cycle |
+| #   | Scenario                       | Expected Severity | Highlights                                     |
+| --- | ------------------------------ | ----------------- | ---------------------------------------------- |
+| 1   | IndexError — file upload crash | P1                | Happy path, passes on first attempt            |
+| 2   | KeyError — payment failure     | P0                | Payment keyword triggers critical; 2 customers |
+| 3   | DB timeout — connection pool   | P1                | Infrastructure/performance issue               |
+| 4   | AttributeError — welcome email | P2                | Non-critical notification bug                  |
+| 5   | Mass outage — service down     | P0                | 5 customers, stress test                       |
+| 6   | ZeroDivisionError — analytics  | P2                | Novel error type for RAG retrieval             |
+| 7   | Reject → regenerate flow       | P2                | Tests the human rejection + patch cycle        |
 
 Each scenario maps to a real buggy source file in `app/` with the bug at the exact line in the stack trace, so GitHub PRs show clean, mergeable diffs.
 
@@ -524,26 +497,26 @@ Each scenario maps to a real buggy source file in `app/` with the bug at the exa
 
 ![Agent flow diagram](docs/assets/agent-flow.png)
 
-| Agent | Input | Output | Key design |
-|---|---|---|---|
-| **Correlation** | raw logs + complaints | `correlated_error`, customer names | Strict JSON prompt; regex fallback for malformed responses |
-| **Severity** | correlated error, customer count | P0 / P1 / P2 + reason | Rule hierarchy: payment/outage → P0, crash/urgent → P1, else P2 |
-| **Root Cause** | correlated error, logs | root cause, relevant files, `rag_similarity_score` | Injects top-3 ChromaDB results; stores top-1 cosine distance for confidence scoring |
-| **Fix Generator** | root cause, files, critic feedback | code patch (delimited) | `===FILE=== ===ORIGINAL=== ===FIXED===` avoids JSON escaping; explicit guard-pattern rules in prompt |
-| **Execution** | code patch | test results, pass/fail, `used_real_tests` | Finds real pytest file first; falls back to synthetic harness with a warning banner |
-| **Critic** | failed test output, patch | structured feedback | `WHAT FAILED / WHY / NEXT ATTEMPT MUST` format to guide regeneration |
-| **Customer Response** | customer names, root cause | reply per customer | All customers in one LLM call using `---CUSTOMER: name---` delimiters |
-| **Incident Report** | full state | Markdown postmortem | Template-filled factual sections; LLM only for recommendations |
+| Agent                 | Input                              | Output                                             | Key design                                                                                           |
+| --------------------- | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Correlation**       | raw logs + complaints              | `correlated_error`, customer names                 | Strict JSON prompt; regex fallback for malformed responses                                           |
+| **Severity**          | correlated error, customer count   | P0 / P1 / P2 + reason                              | Rule hierarchy: payment/outage → P0, crash/urgent → P1, else P2                                      |
+| **Root Cause**        | correlated error, logs             | root cause, relevant files, `rag_similarity_score` | Injects top-3 ChromaDB results; stores top-1 cosine distance for confidence scoring                  |
+| **Fix Generator**     | root cause, files, critic feedback | code patch (delimited)                             | `===FILE=== ===ORIGINAL=== ===FIXED===` avoids JSON escaping; explicit guard-pattern rules in prompt |
+| **Execution**         | code patch                         | test results, pass/fail, `used_real_tests`         | Finds real pytest file first; falls back to synthetic harness with a warning banner                  |
+| **Critic**            | failed test output, patch          | structured feedback                                | `WHAT FAILED / WHY / NEXT ATTEMPT MUST` format to guide regeneration                                 |
+| **Customer Response** | customer names, root cause         | reply per customer                                 | All customers in one LLM call using `---CUSTOMER: name---` delimiters                                |
+| **Incident Report**   | full state                         | Markdown postmortem                                | Template-filled factual sections; LLM only for recommendations                                       |
 
 ### Confidence Score
 
 The HITL approval screen calculates a confidence score (0.0–1.0) from three signals:
 
-| Signal | Max weight | Logic |
-|---|---|---|
-| RAG similarity | 0.40 | `max(0, 1 − cosine_distance) × 0.4` — lower distance = better past-incident match |
-| First-attempt quality | 0.40 | retry 0 → 0.40, retry 1 → 0.20, retry ≥ 2 → 0.00 |
-| Patch scope | 0.20 | diff < 20 lines → 0.20, else 0.00 |
+| Signal                | Max weight | Logic                                                                             |
+| --------------------- | ---------- | --------------------------------------------------------------------------------- |
+| RAG similarity        | 0.40       | `max(0, 1 − cosine_distance) × 0.4` — lower distance = better past-incident match |
+| First-attempt quality | 0.40       | retry 0 → 0.40, retry 1 → 0.20, retry ≥ 2 → 0.00                                  |
+| Patch scope           | 0.20       | diff < 20 lines → 0.20, else 0.00                                                 |
 
 - **≥ 0.8** — green "High confidence" badge
 - **0.5 – 0.8** — yellow "Medium confidence — review carefully"
@@ -557,10 +530,10 @@ When the Groq daily quota is exhausted the system automatically switches to the 
 
 ## Streamlit UI Pages
 
-| Page | Path | Description |
-|---|---|---|
-| **Main** | `/` | 5-phase pipeline runner with live agent activity and HITL approval gate |
-| **History** | `/History` | All past runs with severity filter, expandable detail tabs, and postmortem download |
+| Page          | Path         | Description                                                                                              |
+| ------------- | ------------ | -------------------------------------------------------------------------------------------------------- |
+| **Main**      | `/`          | 5-phase pipeline runner with live agent activity and HITL approval gate                                  |
+| **History**   | `/History`   | All past runs with severity filter, expandable detail tabs, and postmortem download                      |
 | **Analytics** | `/Analytics` | Plotly charts: severity breakdown, MTTR trends, retry distribution, outcome matrix, and benchmark runner |
 
 ---
@@ -570,6 +543,7 @@ When the Groq daily quota is exhausted the system automatically switches to the 
 This project is a research prototype demonstrating multi-agent incident response on controlled scenarios.
 
 Key caveats:
+
 - The benchmark uses **7 fixed scenarios** with known ground-truth fixes — not arbitrary production codebases.
 - Patch correctness is evaluated against **pattern matches in `ground_truth.py`**, not semantic correctness.
 - The synthetic test fallback (when no real pytest file exists) is less reliable than running your actual test suite.
