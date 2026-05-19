@@ -18,8 +18,6 @@ The design prioritizes **correctness over speed**: every code change requires ex
 
 ## Demo
 
-![Pipeline Architecture](docs/assets/architecture.png)
-
 ### HITL Approval Gate
 ![HITL approval gate — confidence score and unified diff](docs/assets/hitl-gate.png)
 
@@ -84,6 +82,8 @@ flowchart TD
     K --> M
     K --> N
 ```
+
+![Pipeline Architecture](docs/assets/architecture.png)
 
 ### How data flows through the system
 
@@ -521,6 +521,8 @@ Each scenario maps to a real buggy source file in `app/` with the bug at the exa
 ---
 
 ## Agent Reference
+
+![Agent flow diagram](docs/assets/agent-flow.png)
 
 | Agent | Input | Output | Key design |
 |---|---|---|---|
