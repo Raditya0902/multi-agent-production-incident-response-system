@@ -30,14 +30,3 @@ def state_after_correlation(sample_state) -> IncidentState:
     state["correlated_error"] = "IndexError at data_processing.py:42 during file upload batch processing"
     state["affected_customers"] = ["Alice Johnson", "Bob Martinez"]
     return state
-
-
-@pytest.fixture
-def state_after_root_cause(state_after_correlation) -> IncidentState:
-    state = dict(state_after_correlation)
-    state["root_cause"] = (
-        "Missing bounds check before list indexing in data_processing.py line 42. "
-        "When an empty CSV is uploaded, items=[] and index=0 causes IndexError."
-    )
-    state["relevant_files"] = ["data_processing.py"]
-    return state

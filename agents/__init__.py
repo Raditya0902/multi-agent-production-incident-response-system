@@ -147,7 +147,6 @@ def _invoke_with_retry(*args, **kwargs):
             if _is_daily_quota_error(err_str):
                 fallback = _get_fallback_llm()
                 if fallback:
-                    print("[LLM] Groq quota exhausted — switching to fallback provider")
                     logger.warning("[LLM] Groq daily quota exhausted — switching to fallback provider")
                     _using_fallback = True
                     return _invoke_fallback_with_retry(*args, **kwargs)
