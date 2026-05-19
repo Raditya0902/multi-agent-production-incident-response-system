@@ -25,3 +25,6 @@ dry_run_test.json
 
 # Internal task tracking (not for public repo)
 dev/
+
+# Claude Code internal guidance
+CLAUDE.md
