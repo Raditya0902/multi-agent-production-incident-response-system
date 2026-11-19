@@ -1,4 +1,4 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, NotRequired
 
 
 class IncidentState(TypedDict):
@@ -18,6 +18,8 @@ class IncidentState(TypedDict):
     root_cause: str
     relevant_files: List[str]
     rag_similarity_score: float  # top-1 ChromaDB cosine distance (0=identical, 2=opposite)
+
+    source_context: NotRequired[str]
 
     # Fix Generator output
     code_patch: str

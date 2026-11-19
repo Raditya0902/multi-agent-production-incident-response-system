@@ -1,6 +1,10 @@
+from functools import partial
+from pathlib import Path
+
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents import llm
+from agents.source_context import read_local_source, source_windows
 from agents.state import IncidentState
 
 SYSTEM_PROMPT = """You are an expert software engineer generating a targeted code fix.
@@ -34,6 +38,20 @@ def fix_generator_agent(state: IncidentState) -> dict:
         f"Relevant Files: {', '.join(state['relevant_files']) or 'unknown'}\n\n"
         f"Error Logs:\n```\n{state['raw_logs']}\n```"
     )
+
+    context = state.get("source_context")
+    if context is None:
+        read = partial(read_local_source, Path(__file__).resolve().parent.parent)
+        windows = source_windows(state["raw_logs"], read, mount="/app", prefix="app/")
+        context = "\n\n".join(window.render() for window in windows)
+    if context:
+        human_content += (
+            "\n\nBuggy production source (path and line range shown above each block):\n"
+            f"{context}\n"
+            "Use the repository-relative path and copy ORIGINAL as a contiguous excerpt "
+            "from this source, preserving line breaks and indentation. Include surrounding "
+            "lines when necessary to distinguish repeated snippets."
+        )
 
     if state.get("critic_feedback"):
         human_content += (

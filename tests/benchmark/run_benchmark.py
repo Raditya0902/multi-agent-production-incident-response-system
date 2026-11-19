@@ -25,13 +25,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
+from agents.execution_agent import parse_code_patch
+from agents.source_context import anchor_feedback, read_local_source, source_windows
 from agents.state import create_initial_state
 from agents.root_cause_agent import root_cause_agent
 from graph.workflow import build_workflow
 from rag.ingestion import INCIDENTS_DIR, _load_docs_from_dir
 from rag.vectorstore import add_documents, retrieve_context_with_scores
 from tests.benchmark.ground_truth import GROUND_TRUTH
-from tests.benchmark.scoring import Score, contract_paths, score_patch
+from tests.benchmark.scoring import SOURCE, Score, contract_paths, patch_section, score_patch
 from tests.benchmark.runtime import interruption, label, run_metadata
 
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -179,6 +181,9 @@ def _check_patch_correctness(patch_text: str, target_file: str) -> bool:
 def _run_single(tc: dict, retrieve) -> dict:
     target = tc["target_file"]
     state = create_initial_state(complaints=tc["complaints"], logs=tc["logs"])
+    read = partial(read_local_source, SOURCE.parent.resolve())
+    windows = source_windows(state["raw_logs"], read, mount="/app", prefix="app/")
+    state["source_context"] = "\n\n".join(window.render() for window in windows)
     started = time.monotonic()
     pipeline_error = None
     smoke_score = None
@@ -189,10 +194,15 @@ def _run_single(tc: dict, retrieve) -> dict:
         if smoke_score.passed is None:
             # An unusable evaluator cannot supply meaningful Critic feedback.
             raise RuntimeError(smoke_score.detail)
+        patch = state["code_patch"]
+        feedback = anchor_feedback(
+            parse_code_patch(patch), patch_section(patch, "ORIGINAL", "FIXED"),
+            windows, read, smoke_score.detail,
+        ) if not smoke_score.used_real_tests else ""
         return {
             "tests_passed": smoke_score.passed,
             "used_real_tests": smoke_score.used_real_tests,
-            "test_results": smoke_score.detail,
+            "test_results": feedback or smoke_score.detail,
             "retry_count": state["retry_count"] + 1,
             "status": "tests_passed" if smoke_score.passed else "tests_failed",
         }

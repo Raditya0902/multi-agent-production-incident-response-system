@@ -13,7 +13,10 @@ from time import monotonic
 
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
-from tests.benchmark.real.adapter import EvaluationError, git, incident_input, score_candidate, validate
+from agents.execution_agent import parse_code_patch
+from agents.source_context import anchor_feedback, source_windows
+from tests.benchmark.real.adapter import EvaluationError, git, incident_input, read_buggy_source, score_candidate, validate
+from tests.benchmark.scoring import patch_section
 from tests.benchmark.real.cache import TrialCache
 from tests.benchmark.real.manifest import DATASET, IMAGE, MANIFESTS, Bug
 from tests.benchmark.real.screen import PROJECTS
@@ -46,11 +49,14 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
     scores = {}
     attempts = 0
     state = {}
+    windows = []
+    read = partial(read_buggy_source, repo, bug.buggy_commit)
 
     def execute(state):
         nonlocal attempts, category, scores
         attempts += 1
         scores = {}
+        feedback = ""
         try:
             scores = score_candidate(repo, bug, state["code_patch"])
             passed = scores["fail_to_pass"] and scores["pass_to_pass"]
@@ -60,16 +66,24 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
             if category not in FEEDBACK:
                 raise
             passed = False
+            if category == "patch_fails_to_apply":
+                patch = state["code_patch"]
+                feedback = anchor_feedback(
+                    parse_code_patch(patch), patch_section(patch, "ORIGINAL", "FIXED"),
+                    windows, read, str(error),
+                )
         return {
             "tests_passed": passed,
             "used_real_tests": bool(scores),
             "retry_count": attempts,
-            "test_results": "Behavioral checks passed." if passed else FEEDBACK[category],
+            "test_results": "Behavioral checks passed." if passed else feedback or FEEDBACK[category],
         }
 
     diagnostic = None
     try:
         state = create_initial_state(**incident_input(repo, bug))
+        windows = source_windows(state["raw_logs"], read)
+        state["source_context"] = "\n\n".join(window.render() for window in windows)
         with TemporaryDirectory(prefix="incident-real-rag-") as path:
             client = chromadb.PersistentClient(path=path)
             with closing(client) if hasattr(client, "close") else nullcontext(client):

@@ -13,7 +13,8 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from agents.execution_agent import parse_code_patch
-from tests.benchmark.real.manifest import IMAGE, safe_path
+from agents.source_context import production_path
+from tests.benchmark.real.manifest import IMAGE
 from tests.benchmark.real.report_plugin import PREFIX
 from tests.benchmark.scoring import PatchError, apply_replacement, patch_section
 
@@ -176,24 +177,23 @@ def score_candidate(repo: Path, bug, patch_text: str) -> dict:
     }
 
 
+def read_buggy_source(repo: Path, revision: str, file: str) -> str | None:
+    if not production_path(file):
+        return None
+    try:
+        return git(repo, "show", f"{revision}:{file}").decode("utf-8")
+    except (subprocess.CalledProcessError, UnicodeDecodeError):
+        return None
+
+
 def incident_input(repo: Path, bug) -> dict:
     run = evaluate_revision(repo, bug, bug.buggy_commit, bug.fail_to_pass, trace=True)
     logs = []
     sources = {}
 
     def source_line(file, line):
-        try:
-            path = safe_path(file)
-        except ValueError:
-            return None
-        if path.suffix != ".py" or "tests" in path.parts:
-            return None
         if file not in sources:
-            try:
-                content = git(repo, "show", f"{bug.buggy_commit}:{file}")
-            except subprocess.CalledProcessError:
-                return None
-            sources[file] = content.decode("utf-8", errors="replace").splitlines()
+            sources[file] = (read_buggy_source(repo, bug.buggy_commit, file) or "").splitlines()
         lines = sources[file]
         return lines[line - 1].strip() if 1 <= line <= len(lines) else None
 
