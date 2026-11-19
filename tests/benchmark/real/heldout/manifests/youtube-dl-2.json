@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "youtube-dl-2",
+  "repository": "https://github.com/ytdl-org/youtube-dl",
+  "buggy_commit": "84f085d4bdb66ee025fb337bcd571eab7469da97",
+  "fixed_commit": "9d6ac71c27b1dfb662c795ef598dbfd0286682da",
+  "source_path": "youtube_dl/extractor/common.py",
+  "test_file": "test/test_InfoExtractor.py",
+  "oracle_files": [
+    "test/test_InfoExtractor.py"
+  ],
+  "fail_to_pass": [
+    "test/test_InfoExtractor.py::TestInfoExtractor::test_parse_mpd_formats"
+  ],
+  "pass_to_pass": [
+    "test/test_InfoExtractor.py::TestInfoExtractor::test_download_json",
+    "test/test_InfoExtractor.py::TestInfoExtractor::test_extract_jwplayer_data_realworld",
+    "test/test_InfoExtractor.py::TestInfoExtractor::test_html_search_meta"
+  ]
+}

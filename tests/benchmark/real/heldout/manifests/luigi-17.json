@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "luigi-17",
+  "repository": "https://github.com/spotify/luigi",
+  "buggy_commit": "c39922350cba3a93c96c2ed223283bf8cf315a7d",
+  "fixed_commit": "e38392a1381dd8daee0f180f0ac7f651edb88e0c",
+  "source_path": "luigi/interface.py",
+  "test_file": "test/scheduler_test.py",
+  "oracle_files": [
+    "test/scheduler_test.py"
+  ],
+  "fail_to_pass": [
+    "test/scheduler_test.py::SchedulerTest::test_local_scheduler_task_history_status"
+  ],
+  "pass_to_pass": [
+    "test/scheduler_test.py::SchedulerTest::test_load_broken_state",
+    "test/scheduler_test.py::SchedulerTest::test_load_old_state",
+    "test/scheduler_test.py::SchedulerTest::test_load_recovers_tasks_index"
+  ]
+}

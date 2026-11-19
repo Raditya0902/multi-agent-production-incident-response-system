@@ -90,48 +90,44 @@ and fixed source. Require the patch scorer to reject an unchanged buggy
 candidate through fail-to-pass while its pass-to-pass controls still pass.
 Validate offline and use zero model calls on held-out cases.
 
-### Frozen held-out set
+### Final held-out pool
 
-The ten [held-out manifests](heldout/manifests) are FastAPI 2 and The Fuck
-22–28, 30, and 31. Neither project appears in the development set. The
-Python 3.11 screen admitted no HTTPie cases and needed no Black cases.
-The Fuck accounts for nine of the ten cases.
+Cap the final pool at three cases per repo. Keep all cases from the
+previous pool in original selection order up to that cap. Preserve the
+six surplus cases and prior evidence under [previous_pool](heldout/previous_pool).
+These cases are outside the final comparison and were never moved into
+the development set.
 
-All ten reproduced on pinned buggy source and passed on pinned fixed
-source. The unchanged-patch control failed fail-to-pass and passed
-pass-to-pass for every case. The
-[validation record](heldout/validation.json) contains the image digest,
-per-node results, and exclusions for all 53 screened candidates. Held-out
-manifests live outside the development runner's manifest directory.
+Screen previously unused projects in order Luigi, Tornado, and
+youtube-dl, using ascending IDs and taking eligible cases in round-robin
+order until eight additions are reached. HTTPie was already screened in
+the previous round. Sanic and Scrapy were outside the cutoff. Use each
+project's upstream test root, including a singular `test/` directory
+where applicable. Exclude upstream fixes concerning security boundaries.
 
-To prepare the offline verifier, clone bare mirrors named `fastapi.git`
-and `thefuck.git` under `$repos`. Build the development image first, then
-the separate held-out image.
+| Repo | Final count | BugsInPy IDs |
+| --- | ---: | --- |
+| FastAPI | 1 | 2 |
+| Luigi | 3 | 16, 17, 18 |
+| The Fuck | 3 | 22, 23, 24 |
+| Tornado | 3 | 1, 2, 4 |
+| youtube-dl | 2 | 1, 2 |
+
+The 12 [final manifests](heldout/manifests) passed the three offline
+checks. Every buggy checkout failed its regression tests, every fixed
+checkout passed, and every unchanged candidate failed fail-to-pass while
+passing pass-to-pass. No model calls were made. The
+[validation record](heldout/validation.json) records exact node outcomes
+and screening exclusions. The prior validation record also documents
+the previous HTTPie screen.
+
+To reproduce these checks, clone bare mirrors named `fastapi.git`,
+`luigi.git`, `thefuck.git`, `tornado.git`, and `youtube-dl.git` under
+`$repos`. Build the development image first, then the held-out image.
 
 ```sh
 docker build -t incident-real-benchmark:stage-a tests/benchmark/real
-docker build -t incident-real-heldout:v0 tests/benchmark/real/heldout
+docker build -t incident-real-heldout:v1-pool tests/benchmark/real/heldout
 GROQ_API_KEY='' DEEPSEEK_API_KEY='' OPENAI_API_KEY='' FALLBACK_LLM_PROVIDER='' \
-python - "$repos" <<'PY'
-from pathlib import Path
-import sys
-from tests.benchmark.real import adapter
-from tests.benchmark.real.manifest import Bug
-
-adapter.IMAGE = "incident-real-heldout:v0"
-for path in sorted(Path("tests/benchmark/real/heldout/manifests").glob("*.json")):
-    bug = Bug.read(path)
-    repo = Path(sys.argv[1]) / f"{bug.project}.git"
-    assert adapter.validate(repo, bug)["valid"], bug.id
-    code = adapter.git(repo, "show", f"{bug.buggy_commit}:{bug.source_path}").decode()
-    if not code.endswith("\n"):
-        code += "\n"
-    unchanged = (
-        f"===FILE===\n{bug.source_path}\n===ORIGINAL===\n{code}"
-        f"===FIXED===\n{code}===EXPLANATION===\nUnchanged control."
-    )
-    score = adapter.score_candidate(repo, bug, unchanged)
-    assert not score["fail_to_pass"] and score["pass_to_pass"], bug.id
-    print(bug.id, "validated")
-PY
+python -m tests.benchmark.real.heldout.validate_pool --repos "$repos"
 ```

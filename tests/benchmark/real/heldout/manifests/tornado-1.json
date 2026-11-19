@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "tornado-1",
+  "repository": "https://github.com/tornadoweb/tornado",
+  "buggy_commit": "6a5a0bfa370b6c0d3dbbf9589a560a98202d2baa",
+  "fixed_commit": "4677c54cc18bbfbdf0f4dadf11610fab6203fd63",
+  "source_path": "tornado/websocket.py",
+  "test_file": "tornado/test/websocket_test.py",
+  "oracle_files": [
+    "tornado/test/websocket_test.py"
+  ],
+  "fail_to_pass": [
+    "tornado/test/websocket_test.py::WebSocketTest::test_nodelay"
+  ],
+  "pass_to_pass": [
+    "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_message_sizes",
+    "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_size_limit",
+    "tornado/test/websocket_test.py::ClientPeriodicPingTest::test_client_ping"
+  ]
+}

@@ -1,19 +1,10 @@
 {
   "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
-  "environment": {
-    "base_tag": "incident-real-benchmark:stage-a",
-    "base_image": "sha256:7f4d1c733bb61f3adb2880b449f753afd43d5b8775effeb7568fd2ce11a6bdde",
-    "evaluator_tag": "incident-real-heldout:v0",
-    "evaluator_image": "sha256:bde1fe366701dd25d59e11cc089751246acb5b221e3634c490b04dd30f570d6f",
-    "platform": "linux/arm64",
-    "python": "3.11",
-    "network": "none",
-    "model_requests": 0
-  },
-  "selected": [
+  "evaluator_image": "sha256:10d3c4caf6c13c1dfad9693ff1a7bc61028f919a7ce59b6d86083955a4890ddb",
+  "cases": [
     {
       "id": "fastapi-2",
-      "buggy_and_fixed": {
+      "validation": {
         "valid": true,
         "buggy": {
           "tests/test_ws_router.py::test_router_ws_depends_with_override": "failed",
@@ -28,7 +19,7 @@
           "tests/test_ws_router.py::test_router": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
@@ -40,8 +31,92 @@
       }
     },
     {
+      "id": "luigi-16",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "test/central_planner_test.py::CentralPlannerTest::test_re_enable_failed_task_assistant": "failed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        },
+        "fixed": {
+          "test/central_planner_test.py::CentralPlannerTest::test_re_enable_failed_task_assistant": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        }
+      },
+      "unchanged": {
+        "fail_to_pass": false,
+        "pass_to_pass": true,
+        "verdicts": {
+          "test/central_planner_test.py::CentralPlannerTest::test_re_enable_failed_task_assistant": "failed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        }
+      }
+    },
+    {
+      "id": "luigi-17",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "test/scheduler_test.py::SchedulerTest::test_local_scheduler_task_history_status": "failed",
+          "test/scheduler_test.py::SchedulerTest::test_load_broken_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_old_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_recovers_tasks_index": "passed"
+        },
+        "fixed": {
+          "test/scheduler_test.py::SchedulerTest::test_local_scheduler_task_history_status": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_broken_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_old_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_recovers_tasks_index": "passed"
+        }
+      },
+      "unchanged": {
+        "fail_to_pass": false,
+        "pass_to_pass": true,
+        "verdicts": {
+          "test/scheduler_test.py::SchedulerTest::test_local_scheduler_task_history_status": "failed",
+          "test/scheduler_test.py::SchedulerTest::test_load_broken_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_old_state": "passed",
+          "test/scheduler_test.py::SchedulerTest::test_load_recovers_tasks_index": "passed"
+        }
+      }
+    },
+    {
+      "id": "luigi-18",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "test/central_planner_test.py::CentralPlannerTest::test_no_automatic_re_enable_after_auto_then_manual_disable": "failed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        },
+        "fixed": {
+          "test/central_planner_test.py::CentralPlannerTest::test_no_automatic_re_enable_after_auto_then_manual_disable": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        }
+      },
+      "unchanged": {
+        "fail_to_pass": false,
+        "pass_to_pass": true,
+        "verdicts": {
+          "test/central_planner_test.py::CentralPlannerTest::test_no_automatic_re_enable_after_auto_then_manual_disable": "failed",
+          "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work": "passed",
+          "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task": "passed"
+        }
+      }
+    },
+    {
       "id": "thefuck-22",
-      "buggy_and_fixed": {
+      "validation": {
         "valid": true,
         "buggy": {
           "tests/test_types.py::TestSortedCorrectedCommandsSequence::test_with_blank": "failed",
@@ -56,7 +131,7 @@
           "tests/test_types.py::TestSortedCorrectedCommandsSequence::test_realises_generator_only_on_demand": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
@@ -69,7 +144,7 @@
     },
     {
       "id": "thefuck-23",
-      "buggy_and_fixed": {
+      "validation": {
         "valid": true,
         "buggy": {
           "tests/test_utils.py::TestCache::test_when_etag_changed": "failed",
@@ -88,7 +163,7 @@
           "tests/test_utils.py::TestGetClosest::test_without_fallback": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
@@ -103,7 +178,7 @@
     },
     {
       "id": "thefuck-24",
-      "buggy_and_fixed": {
+      "validation": {
         "valid": true,
         "buggy": {
           "tests/test_types.py::TestCorrectedCommand::test_equality": "failed",
@@ -120,7 +195,7 @@
           "tests/test_types.py::test_rules_names_list": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
@@ -133,525 +208,266 @@
       }
     },
     {
-      "id": "thefuck-25",
-      "buggy_and_fixed": {
+      "id": "tornado-1",
+      "validation": {
         "valid": true,
         "buggy": {
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command1-hdfs dfs -mkdir -p foo/bar/baz]": "failed",
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command2-./bin/hdfs dfs -mkdir -p foo/bar/baz]": "failed",
-          "tests/rules/test_mkdir_p.py::test_match[command0]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command1]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command2]": "passed"
+          "tornado/test/websocket_test.py::WebSocketTest::test_nodelay": "failed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_message_sizes": "passed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_size_limit": "passed",
+          "tornado/test/websocket_test.py::ClientPeriodicPingTest::test_client_ping": "passed"
         },
         "fixed": {
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command1-hdfs dfs -mkdir -p foo/bar/baz]": "passed",
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command2-./bin/hdfs dfs -mkdir -p foo/bar/baz]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command0]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command1]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command2]": "passed"
+          "tornado/test/websocket_test.py::WebSocketTest::test_nodelay": "passed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_message_sizes": "passed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_size_limit": "passed",
+          "tornado/test/websocket_test.py::ClientPeriodicPingTest::test_client_ping": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command1-hdfs dfs -mkdir -p foo/bar/baz]": "failed",
-          "tests/rules/test_mkdir_p.py::test_get_new_command[command2-./bin/hdfs dfs -mkdir -p foo/bar/baz]": "failed",
-          "tests/rules/test_mkdir_p.py::test_match[command0]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command1]": "passed",
-          "tests/rules/test_mkdir_p.py::test_match[command2]": "passed"
+          "tornado/test/websocket_test.py::WebSocketTest::test_nodelay": "failed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_message_sizes": "passed",
+          "tornado/test/websocket_test.py::ClientOnlyCompressionTest::test_size_limit": "passed",
+          "tornado/test/websocket_test.py::ClientPeriodicPingTest::test_client_ping": "passed"
         }
       }
     },
     {
-      "id": "thefuck-26",
-      "buggy_and_fixed": {
+      "id": "tornado-2",
+      "validation": {
         "valid": true,
         "buggy": {
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command0-vagrant up && vagrant ssh]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command1-new_command1]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command2-vagrant up && vagrant rdp]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command3-new_command3]": "failed",
-          "tests/rules/test_vagrant_up.py::test_match[command0]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command1]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command2]": "passed"
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_redirect_put_without_body": "failed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_304_with_content_length": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_all_methods": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_basic_auth": "passed"
         },
         "fixed": {
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command0-vagrant up && vagrant ssh]": "passed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command1-new_command1]": "passed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command2-vagrant up && vagrant rdp]": "passed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command3-new_command3]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command0]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command1]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command2]": "passed"
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_redirect_put_without_body": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_304_with_content_length": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_all_methods": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_basic_auth": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command0-vagrant up && vagrant ssh]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command1-new_command1]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command2-vagrant up && vagrant rdp]": "failed",
-          "tests/rules/test_vagrant_up.py::test_get_new_command[command3-new_command3]": "failed",
-          "tests/rules/test_vagrant_up.py::test_match[command0]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command1]": "passed",
-          "tests/rules/test_vagrant_up.py::test_match[command2]": "passed"
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_redirect_put_without_body": "failed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_304_with_content_length": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_all_methods": "passed",
+          "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_basic_auth": "passed"
         }
       }
     },
     {
-      "id": "thefuck-27",
-      "buggy_and_fixed": {
+      "id": "tornado-4",
+      "validation": {
         "valid": true,
         "buggy": {
-          "tests/rules/test_open.py::test_get_new_command[command6-xdg-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_get_new_command[command7-gnome-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_get_new_command[command8-kde-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_match[command0]": "passed",
-          "tests/rules/test_open.py::test_match[command1]": "passed",
-          "tests/rules/test_open.py::test_match[command2]": "passed"
+          "tornado/test/web_test.py::StaticFileTest::test_static_unsatisfiable_range_end_less_than_start": "failed",
+          "tornado/test/web_test.py::StaticFileTest::test_static_with_range_neg_past_start": "failed",
+          "tornado/test/web_test.py::AllHTTPMethodsTest::test_standard_methods": "passed",
+          "tornado/test/web_test.py::ApplicationTest::test_listen": "passed",
+          "tornado/test/web_test.py::AuthRedirectTest::test_absolute_auth_redirect": "passed"
         },
         "fixed": {
-          "tests/rules/test_open.py::test_get_new_command[command6-xdg-open http://foo.io]": "passed",
-          "tests/rules/test_open.py::test_get_new_command[command7-gnome-open http://foo.io]": "passed",
-          "tests/rules/test_open.py::test_get_new_command[command8-kde-open http://foo.io]": "passed",
-          "tests/rules/test_open.py::test_match[command0]": "passed",
-          "tests/rules/test_open.py::test_match[command1]": "passed",
-          "tests/rules/test_open.py::test_match[command2]": "passed"
+          "tornado/test/web_test.py::StaticFileTest::test_static_unsatisfiable_range_end_less_than_start": "passed",
+          "tornado/test/web_test.py::StaticFileTest::test_static_with_range_neg_past_start": "passed",
+          "tornado/test/web_test.py::AllHTTPMethodsTest::test_standard_methods": "passed",
+          "tornado/test/web_test.py::ApplicationTest::test_listen": "passed",
+          "tornado/test/web_test.py::AuthRedirectTest::test_absolute_auth_redirect": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
-          "tests/rules/test_open.py::test_get_new_command[command6-xdg-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_get_new_command[command7-gnome-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_get_new_command[command8-kde-open http://foo.io]": "failed",
-          "tests/rules/test_open.py::test_match[command0]": "passed",
-          "tests/rules/test_open.py::test_match[command1]": "passed",
-          "tests/rules/test_open.py::test_match[command2]": "passed"
+          "tornado/test/web_test.py::StaticFileTest::test_static_unsatisfiable_range_end_less_than_start": "failed",
+          "tornado/test/web_test.py::StaticFileTest::test_static_with_range_neg_past_start": "failed",
+          "tornado/test/web_test.py::AllHTTPMethodsTest::test_standard_methods": "passed",
+          "tornado/test/web_test.py::ApplicationTest::test_listen": "passed",
+          "tornado/test/web_test.py::AuthRedirectTest::test_absolute_auth_redirect": "passed"
         }
       }
     },
     {
-      "id": "thefuck-28",
-      "buggy_and_fixed": {
+      "id": "youtube-dl-1",
+      "validation": {
         "valid": true,
         "buggy": {
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test0]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test15]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test16]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test19]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test1]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test20]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test7]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test8]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
+          "test/test_utils.py::TestUtil::test_match_str": "failed",
+          "test/test_utils.py::TestUtil::test_age_restricted": "passed",
+          "test/test_utils.py::TestUtil::test_args_to_str": "passed",
+          "test/test_utils.py::TestUtil::test_base_url": "passed"
         },
         "fixed": {
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test15]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test16]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test19]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test1]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test20]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test7]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test8]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
+          "test/test_utils.py::TestUtil::test_match_str": "passed",
+          "test/test_utils.py::TestUtil::test_age_restricted": "passed",
+          "test/test_utils.py::TestUtil::test_args_to_str": "passed",
+          "test/test_utils.py::TestUtil::test_base_url": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test0]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test15]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test16]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test19]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test1]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test20]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test7]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test8]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
+          "test/test_utils.py::TestUtil::test_match_str": "failed",
+          "test/test_utils.py::TestUtil::test_age_restricted": "passed",
+          "test/test_utils.py::TestUtil::test_args_to_str": "passed",
+          "test/test_utils.py::TestUtil::test_base_url": "passed"
         }
       }
     },
     {
-      "id": "thefuck-30",
-      "buggy_and_fixed": {
+      "id": "youtube-dl-2",
+      "validation": {
         "valid": true,
         "buggy": {
-          "tests/rules/test_fix_file.py::test_not_file[test0]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test10]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test11]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test12]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test13]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test14]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test15]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test16]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test17]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test18]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test19]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test1]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test2]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test3]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test4]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test5]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test6]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test7]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test8]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test9]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_parse_mpd_formats": "failed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_download_json": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_extract_jwplayer_data_realworld": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_html_search_meta": "passed"
         },
         "fixed": {
-          "tests/rules/test_fix_file.py::test_not_file[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test11]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test12]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test13]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test14]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test15]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test16]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test17]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test18]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test19]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test1]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test2]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test3]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test4]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test5]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test6]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test7]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test8]": "passed",
-          "tests/rules/test_fix_file.py::test_not_file[test9]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_parse_mpd_formats": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_download_json": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_extract_jwplayer_data_realworld": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_html_search_meta": "passed"
         }
       },
-      "unchanged_candidate": {
+      "unchanged": {
         "fail_to_pass": false,
         "pass_to_pass": true,
         "verdicts": {
-          "tests/rules/test_fix_file.py::test_not_file[test0]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test10]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test11]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test12]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test13]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test14]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test15]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test16]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test17]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test18]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test19]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test1]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test2]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test3]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test4]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test5]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test6]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test7]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test8]": "failed",
-          "tests/rules/test_fix_file.py::test_not_file[test9]": "failed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test0]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test10]": "passed",
-          "tests/rules/test_fix_file.py::test_get_new_command[test11]": "passed"
-        }
-      }
-    },
-    {
-      "id": "thefuck-31",
-      "buggy_and_fixed": {
-        "valid": true,
-        "buggy": {
-          "tests/rules/test_git_diff_staged.py::test_get_new_command[command1-git diff --staged foo]": "failed",
-          "tests/rules/test_git_diff_staged.py::test_match[command0]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_match[command1]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_not_match[command0]": "passed"
-        },
-        "fixed": {
-          "tests/rules/test_git_diff_staged.py::test_get_new_command[command1-git diff --staged foo]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_match[command0]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_match[command1]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_not_match[command0]": "passed"
-        }
-      },
-      "unchanged_candidate": {
-        "fail_to_pass": false,
-        "pass_to_pass": true,
-        "verdicts": {
-          "tests/rules/test_git_diff_staged.py::test_get_new_command[command1-git diff --staged foo]": "failed",
-          "tests/rules/test_git_diff_staged.py::test_match[command0]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_match[command1]": "passed",
-          "tests/rules/test_git_diff_staged.py::test_not_match[command0]": "passed"
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_parse_mpd_formats": "failed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_download_json": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_extract_jwplayer_data_realworld": "passed",
+          "test/test_InfoExtractor.py::TestInfoExtractor::test_html_search_meta": "passed"
         }
       }
     }
   ],
   "screening": [
     {
-      "id": "fastapi-1",
+      "id": "luigi-1",
       "outcome": "excluded",
-      "reason": "Expected one production Python file, found 4."
+      "reason": "Evaluator exit 2 \u00b7 AttributeError: module 'inspect' has no attribute 'ArgSpec'"
     },
     {
-      "id": "fastapi-2",
+      "id": "luigi-2",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 AttributeError: module 'inspect' has no attribute 'ArgSpec'"
+    },
+    {
+      "id": "luigi-3",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-4",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-5",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-6",
+      "outcome": "excluded",
+      "reason": "Production change exceeds 35 lines."
+    },
+    {
+      "id": "luigi-7",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-8",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-9",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-10",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-11",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-12",
+      "outcome": "excluded",
+      "reason": "Production change exceeds 35 lines."
+    },
+    {
+      "id": "luigi-13",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-14",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-15",
+      "outcome": "excluded",
+      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Mapping' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
+    },
+    {
+      "id": "luigi-16",
       "outcome": "selected"
     },
     {
-      "id": "fastapi-3",
-      "outcome": "excluded",
-      "reason": "No separate pass-to-pass candidates in the target test file."
-    },
-    {
-      "id": "fastapi-4",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 AttributeError: 'FastAPI' object has no attribute 'exception_handlers'"
-    },
-    {
-      "id": "fastapi-5",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 AttributeError: 'FastAPI' object has no attribute 'exception_handlers'"
-    },
-    {
-      "id": "fastapi-6",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 AttributeError: 'FastAPI' object has no attribute 'exception_handlers'"
-    },
-    {
-      "id": "fastapi-7",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 AttributeError: 'FastAPI' object has no attribute 'exception_handlers'"
-    },
-    {
-      "id": "fastapi-8",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-9",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-10",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-11",
-      "outcome": "excluded",
-      "reason": "BugsInPy does not supply target tests from one pytest-compatible file."
-    },
-    {
-      "id": "fastapi-12",
-      "outcome": "excluded",
-      "reason": "Upstream fix subject concerns a security boundary."
-    },
-    {
-      "id": "fastapi-13",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-14",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-15",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Schema' from 'pydantic' (/usr/local/lib/python3.11/site-packages/pydantic/__init__.py)"
-    },
-    {
-      "id": "fastapi-16",
-      "outcome": "excluded",
-      "reason": "The fixed revision lacks a changed file required to stage an identical oracle, tests/test_datetime.py."
-    },
-    {
-      "id": "httpie-1",
-      "outcome": "excluded",
-      "reason": "Production change exceeds the 35-line limit."
-    },
-    {
-      "id": "httpie-2",
-      "outcome": "excluded",
-      "reason": "Expected one production Python file, found 2."
-    },
-    {
-      "id": "httpie-3",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'Iterable' from 'collections' (/usr/local/lib/python3.11/collections/__init__.py)"
-    },
-    {
-      "id": "httpie-4",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'is_windows' from 'requests.compat' (/usr/local/lib/python3.11/site-packages/requests/compat.py)"
-    },
-    {
-      "id": "httpie-5",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'is_py26' from 'requests.compat' (/usr/local/lib/python3.11/site-packages/requests/compat.py)"
-    },
-    {
-      "id": "thefuck-1",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-2",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-3",
-      "outcome": "excluded",
-      "reason": "Documented target did not pass on the fixed revision."
-    },
-    {
-      "id": "thefuck-4",
-      "outcome": "excluded",
-      "reason": "Documented target did not pass on the fixed revision."
-    },
-    {
-      "id": "thefuck-5",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-6",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-7",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-8",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ModuleNotFoundError: No module named 'pyte'"
-    },
-    {
-      "id": "thefuck-9",
-      "outcome": "excluded",
-      "reason": "Documented target did not pass on the fixed revision."
-    },
-    {
-      "id": "thefuck-10",
-      "outcome": "excluded",
-      "reason": "Documented target did not pass on the fixed revision."
-    },
-    {
-      "id": "thefuck-11",
-      "outcome": "excluded",
-      "reason": "Documented target did not pass on the fixed revision."
-    },
-    {
-      "id": "thefuck-12",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 4 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-13",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 4 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-14",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 4 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-15",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 4 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-16",
-      "outcome": "excluded",
-      "reason": "Expected one production Python file, found 4."
-    },
-    {
-      "id": "thefuck-17",
-      "outcome": "excluded",
-      "reason": "Expected one production Python file, found 2."
-    },
-    {
-      "id": "thefuck-18",
-      "outcome": "excluded",
-      "reason": "Upstream fix subject concerns a security boundary."
-    },
-    {
-      "id": "thefuck-19",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-20",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-21",
-      "outcome": "excluded",
-      "reason": "Evaluator exit 2 \u00b7 ImportError: cannot import name 'getargspec' from 'inspect' (/usr/local/lib/python3.11/inspect.py)"
-    },
-    {
-      "id": "thefuck-22",
+      "id": "luigi-17",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-23",
+      "id": "luigi-18",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-24",
+      "id": "tornado-1",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-25",
+      "id": "tornado-2",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-26",
-      "outcome": "selected"
-    },
-    {
-      "id": "thefuck-27",
-      "outcome": "selected"
-    },
-    {
-      "id": "thefuck-28",
-      "outcome": "selected"
-    },
-    {
-      "id": "thefuck-29",
+      "id": "tornado-3",
       "outcome": "excluded",
-      "reason": "BugsInPy does not supply target tests from one pytest-compatible file."
+      "reason": "Documented target did not fail on the buggy revision."
     },
     {
-      "id": "thefuck-30",
+      "id": "tornado-4",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-31",
+      "id": "youtube-dl-1",
       "outcome": "selected"
     },
     {
-      "id": "thefuck-32",
-      "outcome": "cutoff",
-      "reason": "Validated after the frozen ten-case cutoff."
+      "id": "youtube-dl-2",
+      "outcome": "selected"
+    },
+    {
+      "id": "youtube-dl-3",
+      "outcome": "eligible_at_cutoff"
     }
-  ]
+  ],
+  "model_calls": 0
 }

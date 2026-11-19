@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "youtube-dl-1",
+  "repository": "https://github.com/ytdl-org/youtube-dl",
+  "buggy_commit": "99036a1298089068dcf80c0985bfcc3f8c24f281",
+  "fixed_commit": "1cc47c667419e0eadc0a6989256ab7b276852adf",
+  "source_path": "youtube_dl/utils.py",
+  "test_file": "test/test_utils.py",
+  "oracle_files": [
+    "test/test_utils.py"
+  ],
+  "fail_to_pass": [
+    "test/test_utils.py::TestUtil::test_match_str"
+  ],
+  "pass_to_pass": [
+    "test/test_utils.py::TestUtil::test_age_restricted",
+    "test/test_utils.py::TestUtil::test_args_to_str",
+    "test/test_utils.py::TestUtil::test_base_url"
+  ]
+}

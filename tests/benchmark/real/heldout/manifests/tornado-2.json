@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "tornado-2",
+  "repository": "https://github.com/tornadoweb/tornado",
+  "buggy_commit": "2ca8821d006f6693f920a4b183a3a7c985a5c8ad",
+  "fixed_commit": "4f486a4aec746e9d66441600ee3b0743228b061c",
+  "source_path": "tornado/http1connection.py",
+  "test_file": "tornado/test/httpclient_test.py",
+  "oracle_files": [
+    "tornado/test/httpclient_test.py"
+  ],
+  "fail_to_pass": [
+    "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_redirect_put_without_body"
+  ],
+  "pass_to_pass": [
+    "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_304_with_content_length",
+    "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_all_methods",
+    "tornado/test/httpclient_test.py::HTTPClientCommonTestCase::test_basic_auth"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "luigi-18",
+  "repository": "https://github.com/spotify/luigi",
+  "buggy_commit": "6cffbf438d023441f7f42c2019a51c62eecd9018",
+  "fixed_commit": "c521d59c5eacf6c19ce3c17a62f73e042fa0556e",
+  "source_path": "luigi/scheduler.py",
+  "test_file": "test/central_planner_test.py",
+  "oracle_files": [
+    "test/central_planner_test.py"
+  ],
+  "fail_to_pass": [
+    "test/central_planner_test.py::CentralPlannerTest::test_no_automatic_re_enable_after_auto_then_manual_disable"
+  ],
+  "pass_to_pass": [
+    "test/central_planner_test.py::CentralPlannerTest::test_allow_resource_use_while_scheduling",
+    "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work",
+    "test/central_planner_test.py::CentralPlannerTest::test_assistant_get_work_external_task"
+  ]
+}
