@@ -16,9 +16,42 @@ _MAX_RETRIES = 4
 _BASE_WAIT = 2  # seconds
 
 
+def primary_llm_settings() -> dict:
+    provider = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+    if provider == "deepseek":
+        return {
+            "provider": provider,
+            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-flash"),
+            "temperature": float(os.getenv("DEEPSEEK_TEMPERATURE", "0.2")),
+            "max_tokens": int(os.getenv("DEEPSEEK_MAX_TOKENS", "4096")),
+            "thinking": "disabled",
+        }
+    if provider != "groq":
+        raise ValueError(f"Unknown primary LLM provider: {provider}")
+    return {
+        "provider": provider,
+        "model": os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
+        "temperature": float(os.getenv("GROQ_TEMPERATURE", "0.2")),
+        "max_tokens": int(os.getenv("GROQ_MAX_TOKENS", "4096")),
+    }
+
+
 def _get_llm():
     global _llm
     if _llm is None:
+        settings = primary_llm_settings()
+        if settings["provider"] == "deepseek":
+            from agents.deepseek import DeepSeekClient
+
+            api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not api_key:
+                raise EnvironmentError("Set DEEPSEEK_API_KEY in the ignored .env.")
+            _llm = DeepSeekClient(
+                model=settings["model"], temperature=settings["temperature"],
+                max_tokens=settings["max_tokens"], api_key=api_key,
+            )
+            return _llm
+
         from langchain_groq import ChatGroq
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
@@ -26,9 +59,9 @@ def _get_llm():
                 "GROQ_API_KEY is not set. Copy .env.example to .env and add your key."
             )
         _llm = ChatGroq(
-            model=os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
-            temperature=float(os.getenv("GROQ_TEMPERATURE", "0.2")),
-            max_tokens=int(os.getenv("GROQ_MAX_TOKENS", "4096")),
+            model=settings["model"],
+            temperature=settings["temperature"],
+            max_tokens=settings["max_tokens"],
             api_key=api_key,
         )
     return _llm
@@ -165,7 +198,7 @@ def _invoke_with_retry(*args, **kwargs):
 
 
 class _LazyLLM:
-    """Proxy that defers ChatGroq construction until first use."""
+    """Proxy that defers primary client construction until first use."""
 
     def __getattr__(self, name):
         return getattr(_get_llm(), name)

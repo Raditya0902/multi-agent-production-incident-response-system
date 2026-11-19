@@ -16,7 +16,7 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 pandas>=2.0.0
 
-# Optional fallback LLM providers (install whichever you configure in FALLBACK_LLM_PROVIDER)
+# Optional LLM providers (install whichever you configure)
 # langchain-google-genai>=2.0.0   # for FALLBACK_LLM_PROVIDER=gemini
-# langchain-openai>=0.2.0         # for FALLBACK_LLM_PROVIDER=openai
+# langchain-openai>=1.0.0         # for LLM_PROVIDER=deepseek or FALLBACK_LLM_PROVIDER=openai
 # langchain-anthropic>=0.2.0      # for FALLBACK_LLM_PROVIDER=anthropic
