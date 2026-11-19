@@ -26,6 +26,13 @@ def critic_agent(state: IncidentState) -> dict:
         f"Retry Attempt: {state.get('retry_count', 1)}"
     )
 
+    if state.get("service_contract"):
+        human_content += (
+            "\n\nFunction signatures and return or raise statements observed in buggy source:\n"
+            f"{state['service_contract']}\n"
+            "Distinguish the reported regression from changes to previously working behavior."
+        )
+
     if state.get("critic_feedback"):
         human_content += (
             f"\n\nPrevious critic feedback (do not repeat this advice):\n{state['critic_feedback']}"

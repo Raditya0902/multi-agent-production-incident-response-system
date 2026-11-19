@@ -59,13 +59,14 @@ def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
         evaluations.append(held_out)
         if held_out:
             return Score(False, True, OUTPUT)
-        return Score(len(evaluations) > 1, True, "1 failed in 0.02s")
+        return Score(len(evaluations) > 1, True, f"{OUTPUT}\n1 failed in 0.02s")
 
     monkeypatch.setattr(synthetic, "score_patch", score)
     outcome = synthetic._run_single(case, lambda *args, **kwargs: [])
     assert outcome["status"] == "failed"
     assert outcome["score_detail"] == OUTPUT
     assert evaluations == [False, False, True]
+    assert any("Service checks: 0 passed, 1 failed." in prompt for prompt in prompts)
     assert any("PREVIOUS FIX FAILED" in prompt for prompt in prompts)
     assert any("app/module.py:1-2" in prompt for prompt in prompts)
     assert any("Write a personalized reply" in prompt for prompt in prompts)
@@ -101,12 +102,14 @@ def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
     def score(repo, bug, patch):
         attempts.append(patch)
         return {"fail_to_pass": len(attempts) > 1, "pass_to_pass": len(attempts) > 1,
-                "verdicts": {failing: "passed", passing: "passed"}, "raw_output": OUTPUT}
+                "verdicts": {node: "passed" if len(attempts) > 1 else "failed" for node in (failing, passing)},
+                "raw_output": OUTPUT}
 
     monkeypatch.setattr(real, "score_candidate", score)
     outcome = real.run_trial(Path("unused"), bug, 1)
     assert outcome["resolved"]
     assert outcome["attempts"] == 2
+    assert any("Previously passing checks: 0 passed, 1 failed." in prompt for prompt in prompts)
     assert any("PREVIOUS FIX FAILED" in prompt for prompt in prompts)
     assert any("app/module.py:1-2" in prompt for prompt in prompts)
     assert any("Write a personalized reply" in prompt for prompt in prompts)

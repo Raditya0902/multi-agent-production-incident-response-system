@@ -20,6 +20,7 @@ class IncidentState(TypedDict):
     rag_similarity_score: float  # top-1 ChromaDB cosine distance (0=identical, 2=opposite)
 
     source_context: NotRequired[str]
+    service_contract: NotRequired[str]
 
     # Fix Generator output
     code_patch: str

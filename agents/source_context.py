@@ -50,6 +50,7 @@ class SourceWindow:
     first: int
     last: int
     body: str
+    anchor: int
 
     def render(self) -> str:
         return f"{self.path}:{self.first}-{self.last}\n```python\n{self.body}\n```"
@@ -85,7 +86,7 @@ def source_windows(
             else:
                 end -= 1
         if first <= center < end:
-            windows.append(SourceWindow(path, first + 1, end, "\n".join(lines[first:end])))
+            windows.append(SourceWindow(path, first + 1, end, "\n".join(lines[first:end]), center + 1))
         if len(windows) == MAX_WINDOWS:
             break
     return windows

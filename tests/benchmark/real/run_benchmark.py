@@ -14,7 +14,9 @@ from time import monotonic
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.execution_agent import parse_code_patch
+from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, source_windows
+from tests.benchmark.feedback import behavior_counts
 from tests.benchmark.real.adapter import EvaluationError, git, incident_input, read_buggy_source, score_candidate, validate
 from tests.benchmark.scoring import patch_section
 from tests.benchmark.real.cache import TrialCache
@@ -61,6 +63,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
             scores = score_candidate(repo, bug, state["code_patch"])
             passed = scores["fail_to_pass"] and scores["pass_to_pass"]
             category = None if passed else "wrong_fix"
+            feedback = behavior_counts(scores["verdicts"], bug.fail_to_pass, bug.pass_to_pass)
         except EvaluationError as error:
             category = error.category
             if category not in FEEDBACK:
@@ -84,6 +87,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         state = create_initial_state(**incident_input(repo, bug))
         windows = source_windows(state["raw_logs"], read)
         state["source_context"] = "\n\n".join(window.render() for window in windows)
+        state["service_contract"] = source_contracts(windows, read)
         with TemporaryDirectory(prefix="incident-real-rag-") as path:
             client = chromadb.PersistentClient(path=path)
             with closing(client) if hasattr(client, "close") else nullcontext(client):

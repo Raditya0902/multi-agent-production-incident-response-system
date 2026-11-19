@@ -4,6 +4,7 @@ from pathlib import Path
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents import llm
+from agents.service_contract import source_contracts
 from agents.source_context import read_local_source, source_windows
 from agents.state import IncidentState
 
@@ -40,10 +41,12 @@ def fix_generator_agent(state: IncidentState) -> dict:
     )
 
     context = state.get("source_context")
+    contracts = state.get("service_contract", "")
     if context is None:
         read = partial(read_local_source, Path(__file__).resolve().parent.parent)
         windows = source_windows(state["raw_logs"], read, mount="/app", prefix="app/")
         context = "\n\n".join(window.render() for window in windows)
+        contracts = source_contracts(windows, read)
     if context:
         human_content += (
             "\n\nBuggy production source (path and line range shown above each block):\n"
@@ -51,6 +54,14 @@ def fix_generator_agent(state: IncidentState) -> dict:
             "Use the repository-relative path and copy ORIGINAL as a contiguous excerpt "
             "from this source, preserving line breaks and indentation. Include surrounding "
             "lines when necessary to distinguish repeated snippets."
+        )
+
+    if contracts:
+        human_content += (
+            "\n\nFunction signatures and return or raise statements observed in buggy source:\n"
+            f"{contracts}\n"
+            "Keep the public signature and preserve behavior for inputs that already worked. "
+            "Check that the replacement still returns the same kind of result on those paths."
         )
 
     if state.get("critic_feedback"):
