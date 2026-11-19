@@ -11,10 +11,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
 
+from agents import primary_llm_settings
+from agents.benchmark_usage import benchmark_usage, usage_delta
 from tests.benchmark.real.adapter import EvaluationError, git, incident_input, score_candidate, validate
 from tests.benchmark.real.cache import TrialCache
 from tests.benchmark.real.manifest import DATASET, IMAGE, MANIFESTS, Bug
 from tests.benchmark.real.screen import PROJECTS
+from tests.benchmark.runtime import interruption, label, run_metadata
 
 
 RESULTS = MANIFESTS.parent.parent / "results" / "real"
@@ -85,7 +88,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         diagnostic = str(error)
     except Exception as error:
         message = str(error)
-        if (_is_rate_limit_error(message.lower()) or _is_daily_quota_error(message.lower())
+        if (interruption(error) or _is_rate_limit_error(message.lower()) or _is_daily_quota_error(message.lower())
                 or getattr(error, "status_code", None) in {401, 403}):
             raise BenchmarkInterrupted(message.splitlines()[0]) from error
         diagnostic = message.splitlines()[0]
@@ -98,7 +101,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         "trial": trial,
         "approval_mode": "auto_approve",
         "rag": {"mode": "throwaway_empty", "auto_ingest": False},
-        "provider": os.getenv("FALLBACK_LLM_PROVIDER") if is_using_fallback() else "groq",
+        "provider": os.getenv("FALLBACK_LLM_PROVIDER") if is_using_fallback() else primary_llm_settings()["provider"],
         "resolved": resolved,
         "fail_to_pass": scores.get("fail_to_pass"),
         "pass_to_pass": scores.get("pass_to_pass"),
@@ -139,35 +142,46 @@ def select_bugs(ids, max_bugs, directory=MANIFESTS):
 
 
 def run_all(args, bugs):
-    if not os.getenv("GROQ_API_KEY"):
-        raise SystemExit("Set GROQ_API_KEY in the ignored .env before running the benchmark.")
+    settings = primary_llm_settings()
+    key_name = "DEEPSEEK_API_KEY" if settings["provider"] == "deepseek" else "GROQ_API_KEY"
+    if not os.getenv(key_name):
+        raise SystemExit(f"Set {key_name} in the ignored .env before running the benchmark.")
     image_id = subprocess.check_output(["docker", "image", "inspect", IMAGE, "--format", "{{.Id}}"], text=True).strip()
     configuration = {
         "dataset": DATASET,
         "evaluator_image": image_id,
         "evaluator_commit": git(Path(__file__).parent, "rev-parse", "HEAD").decode().strip(),
-        "provider": "groq",
+        **settings,
         "fallback": os.getenv("FALLBACK_LLM_PROVIDER", ""),
-        "model": os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
-        "temperature": os.getenv("GROQ_TEMPERATURE", "0.2"),
-        "max_tokens": os.getenv("GROQ_MAX_TOKENS", "4096"),
         "attempt_limit": os.getenv("MAX_RETRY_ATTEMPTS", "3"),
     }
-    pending = False
+    metadata = run_metadata(settings, configuration["evaluator_commit"])
+    with benchmark_usage(settings) as meter:
+        run_cached(args, bugs, configuration, metadata, meter)
+
+
+def run_cached(args, bugs, configuration, metadata, meter):
+    stopped = None
     results = []
-    print(f"BugsInPy | AUTO-APPROVE | {configuration['model']}", flush=True)
+    print(f"BugsInPy | AUTO-APPROVE | {label(configuration)}", flush=True)
     for bug in bugs:
         provenance = {**configuration, "manifest": bug.to_dict()}
         cache = TrialCache(RESULTS, provenance)
         for number in range(1, args.trials + 1):
             result = cache.read(bug.id, number)
-            if result is None and not pending:
+            if result is None and stopped is None:
                 try:
+                    before = meter.snapshot() if meter else None
                     result = run_trial(args.repos / f"{bug.project}.git", bug, number)
-                    result = cache.save(bug.id, number, {**result, "configuration": provenance})
+                    result = cache.save(bug.id, number, {
+                        **result,
+                        "configuration": provenance,
+                        "run_metadata": run_metadata(configuration, metadata["git_commit"]),
+                        "usage": usage_delta(before, meter.snapshot()) if meter else None,
+                    })
                 except BenchmarkInterrupted as error:
                     print(f"Paused at {bug.id} trial {number}: {error}", flush=True)
-                    pending = True
+                    stopped = str(error)
             if result is None:
                 print(f"{bug.id} trial {number}: pending", flush=True)
                 continue
@@ -175,8 +189,27 @@ def run_all(args, bugs):
             verdict = "resolved" if result["resolved"] else result["failure_category"]
             print(f"{bug.id} trial {number}: {verdict}, {result['attempts']} attempts, "
                   f"{result['runtime_seconds']:.2f}s", flush=True)
-    print(json.dumps(summarize(results, len(bugs) * args.trials), indent=2))
-    if pending:
+    summary = summarize(results, len(bugs) * args.trials)
+    payload = {
+        "suite": "bugsinpy",
+        "approval_mode": "auto_approve",
+        "run_metadata": metadata,
+        "run_interruption": stopped,
+        "metrics": summary,
+        "usage": meter.snapshot() if meter else None,
+        "cumulative_usage": meter.snapshot(cumulative=True) if meter else None,
+        "trials": results,
+        "requested_bugs": [bug.id for bug in bugs],
+    }
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    path = RESULTS / ("deepseek-flash-latest.json" if meter else "latest.json")
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+    if meter:
+        print(f"Estimated spend ${payload['usage']['estimated_cost_usd']:.6f} this run, "
+              f"${payload['cumulative_usage']['estimated_cost_usd']:.6f} cumulative.")
+    print(f"Results saved to {path}")
+    if stopped:
         raise SystemExit(2)
 
 

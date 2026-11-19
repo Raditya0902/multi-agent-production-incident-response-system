@@ -14,15 +14,17 @@ Outputs:
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from agents import primary_llm_settings
+from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.state import create_initial_state
 from agents.root_cause_agent import root_cause_agent
 from graph.workflow import build_workflow
@@ -30,6 +32,7 @@ from rag.ingestion import INCIDENTS_DIR, _load_docs_from_dir
 from rag.vectorstore import add_documents, retrieve_context_with_scores
 from tests.benchmark.ground_truth import GROUND_TRUTH
 from tests.benchmark.scoring import Score, contract_paths, score_patch
+from tests.benchmark.runtime import interruption, label, run_metadata
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
@@ -205,6 +208,8 @@ def _run_single(tc: dict, retrieve) -> dict:
                 for update in step.values():
                     state.update(update)
         except Exception as error:
+            if interruption(error):
+                raise
             pipeline_error = str(error)
 
         if smoke_score is not None and smoke_score.passed is None:
@@ -288,7 +293,7 @@ def _print_metrics(metrics: dict) -> None:
     print(f"  Matrix unscored: {metrics['matrix_unscored_count']}")
 
 
-def _score_cases(cases, vector_dir):
+def _score_cases(cases, vector_dir, meter=None):
     import chromadb
 
     client = chromadb.PersistentClient(path=str(vector_dir))
@@ -300,26 +305,42 @@ def _score_cases(cases, vector_dir):
     retrieve = partial(retrieve_context_with_scores, collection=collection)
 
     results = []
+    stopped = None
     for case in cases:
         print(f"  [{case['id']}] {case['name']} ...", end=" ", flush=True)
-        result = _run_single(case, retrieve)
+        before = meter.snapshot() if meter else None
+        try:
+            result = _run_single(case, retrieve)
+        except Exception as error:
+            if not interruption(error):
+                raise
+            stopped = str(error)
+            print(f"STOPPED · {stopped}", flush=True)
+            break
+        if meter:
+            result["usage"] = usage_delta(before, meter.snapshot())
         results.append(result)
         print(f"{result['status'].upper()} ({result['elapsed']:.2f}s)")
         if result["error"]:
             print(f"    {result['error'].splitlines()[0]}")
         elif result["status"] == "invalid":
             print(f"    {result['score_detail'].splitlines()[0]}")
-    return results, [doc["id"] for doc in docs]
+    return results, [doc["id"] for doc in docs], stopped
 
 
 def run_benchmark(max_cases: int = 7, save_history: bool = False, case_ids: list = None) -> dict:
     cases = TEST_CASES[:max_cases]
     if case_ids:
         cases = [case for case in cases if case["id"] in case_ids]
-    print(f"Synthetic regression suite | benchmark mode: AUTO-APPROVE | {len(cases)} case(s)", flush=True)
+    settings = primary_llm_settings()
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    metadata = run_metadata(settings, commit)
+    print(f"Synthetic regression suite | {label(settings)} | AUTO-APPROVE | {len(cases)} case(s)", flush=True)
 
-    with TemporaryDirectory(prefix="incident-benchmark-chroma-") as vector_dir:
-        scenarios, seed_ids = _score_cases(cases, vector_dir)
+    with benchmark_usage(settings) as meter, TemporaryDirectory(prefix="incident-benchmark-chroma-") as vector_dir:
+        scenarios, seed_ids, stopped = _score_cases(cases, vector_dir, meter)
+        usage = meter.snapshot() if meter else None
+        cumulative_usage = meter.snapshot(cumulative=True) if meter else None
     metrics = _compute_metrics(scenarios)
     _print_metrics(metrics)
 
@@ -328,7 +349,11 @@ def run_benchmark(max_cases: int = 7, save_history: bool = False, case_ids: list
         "suite": "synthetic_regression",
         "approval_mode": "auto_approve",
         "rag": {"mode": "throwaway_static", "seed_ids": seed_ids, "auto_ingest": False},
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": metadata["run_at"],
+        "run_metadata": metadata,
+        "run_interruption": stopped,
+        "usage": usage,
+        "cumulative_usage": cumulative_usage,
         "metrics": metrics,
         "scenarios": scenarios,
     }
@@ -342,6 +367,9 @@ def run_benchmark(max_cases: int = 7, save_history: bool = False, case_ids: list
         with history.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
         print(f"Appended to {history}")
+    if meter:
+        print(f"Estimated spend ${usage['estimated_cost_usd']:.6f} this run, "
+              f"${cumulative_usage['estimated_cost_usd']:.6f} cumulative.")
     return payload
 
 
@@ -351,4 +379,6 @@ if __name__ == "__main__":
     parser.add_argument("--cases", type=int, nargs="+", metavar="ID", help="Run only specific case IDs (e.g. --cases 7)")
     parser.add_argument("--save-history", action="store_true", help="Append results to history.jsonl")
     args = parser.parse_args()
-    run_benchmark(max_cases=args.max, save_history=args.save_history, case_ids=args.cases)
+    outcome = run_benchmark(max_cases=args.max, save_history=args.save_history, case_ids=args.cases)
+    if outcome["run_interruption"]:
+        raise SystemExit(2)

@@ -121,6 +121,7 @@ def test_benchmark_queries_only_static_seed_without_using_dashboard_collection(m
     monkeypatch.setattr(vectorstore, "_get_collection", dashboard_collection)
     monkeypatch.setattr(vectorstore, "get_embedding_model", EmbeddingModel)
 
-    results, seeded = benchmark._score_cases([benchmark.TEST_CASES[0]] * 2, tmp_path / "chroma")
+    results, seeded, stopped = benchmark._score_cases([benchmark.TEST_CASES[0]] * 2, tmp_path / "chroma")
+    assert stopped is None
     assert len(results) == 2
     assert seeded == ["static"]

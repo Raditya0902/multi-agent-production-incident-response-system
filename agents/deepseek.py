@@ -33,10 +33,15 @@ class DeepSeekClient:
 
     def invoke(self, *args, **kwargs):
         from openai import APIConnectionError, APIStatusError
+        from agents.benchmark_usage import active_usage
 
+        meter = active_usage()
+        request = meter.reserve(self.max_tokens) if meter else None
         try:
-            return self.client.invoke(*args, **kwargs)
+            response = self.client.invoke(*args, **kwargs)
         except APIStatusError as error:
+            if meter and error.status_code in {400, 401, 402, 403, 404, 422, 429}:
+                meter.reject(request)
             description = {
                 400: "request parameters rejected",
                 401: "authentication rejected",
@@ -49,3 +54,6 @@ class DeepSeekClient:
             raise DeepSeekRequestError(error.status_code, description) from None
         except APIConnectionError:
             raise DeepSeekRequestError(None, "connection failed or timed out") from None
+        if meter:
+            meter.settle(request, response.response_metadata.get("token_usage") or {}, response.usage_metadata or {})
+        return response
