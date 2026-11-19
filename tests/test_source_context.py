@@ -19,6 +19,8 @@ def test_windows_never_read_test_paths_or_unknown_absolute_paths():
         'File "/app/tests/test_private.py", line 1\n    call()\n'
         'File "pkg/test/test_private.py", line 1\n    call()\n'
         'File "pkg/conftest.py", line 1\n    call()\n'
+        'File "TESTS/BENCHMARK/REFERENCE_FIXES/module.py", line 1\n    call()\n'
+        'File "pkg/TEST_private.py", line 1\n    call()\n'
         'File "/outside/module.py", line 1\n    call()\n'
     )
 

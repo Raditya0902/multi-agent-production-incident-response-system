@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from notifications.github_pr import (
     is_configured,
@@ -81,12 +83,15 @@ def test_create_pr_returns_none_on_exception(monkeypatch):
     assert create_pr(RESOLVED_STATE, 1) is None
 
 
-def test_create_pr_happy_path(monkeypatch):
+@pytest.mark.parametrize("remote_mode", ("100644", "120000"))
+def test_create_pr_validates_the_canonical_path_on_the_pinned_base(monkeypatch, remote_mode):
     monkeypatch.setenv("GITHUB_TOKEN", "ghp_fake")
     monkeypatch.setenv("GITHUB_REPO", "owner/repo")
     monkeypatch.setenv("GITHUB_BASE_BRANCH", "main")
 
     created_prs = []
+    updates = []
+    branches = []
 
     class FakePR:
         html_url = "https://github.com/owner/repo/pull/42"
@@ -99,13 +104,23 @@ def test_create_pr_happy_path(monkeypatch):
             return B()
 
         def create_git_ref(self, ref, sha):
-            pass
+            branches.append(ref)
+
+        def get_git_commit(self, sha):
+            return SimpleNamespace(tree=SimpleNamespace(sha="tree"))
+
+        def get_git_tree(self, sha, recursive):
+            return SimpleNamespace(truncated=False, tree=[
+                SimpleNamespace(path="app/data_processing.py", type="blob", mode=remote_mode),
+            ])
 
         def get_contents(self, path, ref=None):
-            raise Exception("not found")
+            assert path == "app/data_processing.py"
+            assert ref == "abc123"
+            return SimpleNamespace(sha="blob", decoded_content=b"result = items[index]\n")
 
-        def create_file(self, path, msg, content, branch):
-            pass
+        def update_file(self, path, msg, content, sha, *, branch):
+            updates.append(path)
 
         def create_pull(self, **kwargs):
             created_prs.append(kwargs)
@@ -117,9 +132,19 @@ def test_create_pr_happy_path(monkeypatch):
 
     monkeypatch.setattr("notifications.github_pr._get_github_client", lambda token: FakeGithubClient())
 
-    result = create_pr(RESOLVED_STATE, 7)
+    state = {**RESOLVED_STATE, "code_patch": RESOLVED_STATE["code_patch"].replace(
+        "data_processing.py", "/app/data_processing.py",
+    )}
+    result = create_pr(state, 7)
+    if remote_mode == "120000":
+        assert result is None
+        assert branches == updates == created_prs == []
+        return
     assert result == "https://github.com/owner/repo/pull/42"
+    assert len(branches) == 1
     assert len(created_prs) == 1
+    assert updates == ["app/data_processing.py"]
+    assert "`app/data_processing.py`" in created_prs[0]["body"]
     assert "[P1]" in created_prs[0]["title"]
     assert "incident-fix/p1-7" in created_prs[0]["head"]
 

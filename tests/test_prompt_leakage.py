@@ -1,5 +1,6 @@
 """Exercise every live prompt in both graph routes with evaluator-only canaries."""
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -46,13 +47,16 @@ def prompts(monkeypatch):
     assert all(secret not in message for secret in HIDDEN for message in seen)
 
 
-def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
+def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_path):
     case = {
         "id": 0, "name": "probe", "target_file": "module.py", "complaints": ["service failure"],
         "logs": 'File "/app/module.py", line 2, in main\n    return result',
     }
     monkeypatch.setattr(synthetic, "contract_paths", lambda *args, **kwargs: [])
-    monkeypatch.setattr(synthetic, "read_local_source", lambda *args: "def main():\n    return result\n")
+    source = tmp_path / "app"
+    source.mkdir()
+    (source / "module.py").write_text("def main():\n    return result\n")
+    monkeypatch.setattr(synthetic, "SOURCE", source)
     evaluations = []
 
     def score(target, patch, *, held_out):
@@ -73,7 +77,7 @@ def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
     assert any("prevention measures" in prompt for prompt in prompts)
 
 
-def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
+def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_path):
     failing = "tests/test_heldout_canary.py::test_fail"
     passing = "tests/test_heldout_canary.py::test_pass"
     bug = Bug(
@@ -87,6 +91,9 @@ def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts):
         assert spec == f"{bug.buggy_commit}:{bug.source_path}"
         return b"def main():\n    return result\n"
 
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app/module.py").write_text("def main():\n    return result\n")
+    monkeypatch.setattr(real, "checkout", lambda *args: nullcontext((tmp_path, None)))
     monkeypatch.setattr(adapter, "git", read)
     monkeypatch.setattr(adapter, "evaluate_revision", lambda *args, **kwargs: adapter.TestRun({
         failing: {"status": "failed", "exception": "RuntimeError", "frames": [

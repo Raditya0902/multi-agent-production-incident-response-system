@@ -18,11 +18,12 @@ MAX_WINDOW_CHARS = 3600
 
 def production_path(value: str) -> bool:
     path = PurePosixPath(value)
+    name = path.name.casefold()
     return (
         path.as_posix() == value and not path.is_absolute() and "\\" not in value
-        and path.suffix == ".py" and not path.name.startswith("test_")
-        and not path.name.endswith("_test.py") and path.name != "conftest.py"
-        and all(not part.startswith(".") and part not in NON_SOURCE for part in path.parts)
+        and path.suffix == ".py" and not name.startswith("test_")
+        and not name.endswith("_test.py") and name != "conftest.py"
+        and all(not part.startswith(".") and part.casefold() not in NON_SOURCE for part in path.parts)
     )
 
 

@@ -2,9 +2,11 @@ import logging
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from agents.execution_agent import parse_code_patch
+from agents.patch_paths import canonical_app_path, with_patch_path
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,9 @@ def create_pr(state: dict, incident_id: int) -> Optional[str]:
         return None
 
     try:
+        patch = parse_code_patch(state.get("code_patch", ""))
+        file_path = canonical_app_path(Path(__file__).resolve().parent.parent, patch["file"])
+        patch["file"] = file_path
         token = os.getenv("GITHUB_TOKEN")
         repo_name = os.getenv("GITHUB_REPO")
         base_branch = os.getenv("GITHUB_BASE_BRANCH", "main")
@@ -39,25 +44,22 @@ def create_pr(state: dict, incident_id: int) -> Optional[str]:
         g = _get_github_client(token)
         repo = g.get_repo(repo_name)
 
-        patch = parse_code_patch(state.get("code_patch", ""))
-        file_path = patch.get("file", "")
-        if not file_path:
-            logger.warning("GitHub PR: patch has no file path, skipping")
+        base_sha = repo.get_branch(base_branch).commit.sha
+        base_tree = repo.get_git_commit(base_sha).tree.sha
+        tree = repo.get_git_tree(base_tree, recursive=True)
+        if tree.truncated or not any(
+            entry.path == file_path and entry.type == "blob" and entry.mode in {"100644", "100755"}
+            for entry in tree.tree
+        ):
+            logger.warning("GitHub PR: target is not a regular file in the pinned base tree")
             return None
 
+        existing = repo.get_contents(file_path, ref=base_sha)
         branch_name = _make_branch_name(state, incident_id)
-        base_sha = repo.get_branch(base_branch).commit.sha
+        new_content = _get_updated_content(repo, file_path, patch, base_sha)
         repo.create_git_ref(f"refs/heads/{branch_name}", base_sha)
-
-        new_content = _get_updated_content(repo, file_path, patch, branch_name)
         commit_msg = f"fix({file_path}): {_short_error(state)} (incident #{incident_id})"
-
-        try:
-            existing = repo.get_contents(file_path, ref=branch_name)
-            repo.update_file(file_path, commit_msg, new_content, existing.sha, branch=branch_name)
-        except Exception:
-            # File doesn't exist in the repo yet
-            repo.create_file(file_path, commit_msg, new_content, branch=branch_name)
+        repo.update_file(file_path, commit_msg, new_content, existing.sha, branch=branch_name)
 
         severity = state.get("severity", "P2")
         icon = _SEVERITY_ICON.get(severity, "⚪")
@@ -65,7 +67,9 @@ def create_pr(state: dict, incident_id: int) -> Optional[str]:
 
         pr = repo.create_pull(
             title=title,
-            body=_build_pr_body(state, incident_id, branch_name),
+            body=_build_pr_body(
+                {**state, "code_patch": with_patch_path(state["code_patch"], file_path)}, incident_id, branch_name,
+            ),
             head=branch_name,
             base=base_branch,
         )

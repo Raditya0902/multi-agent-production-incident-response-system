@@ -14,11 +14,12 @@ from time import monotonic
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.execution_agent import parse_code_patch
+from agents.patch_paths import PatchPathError, WORKSPACE_MOUNTS, canonical_patch_path, with_patch_path
 from agents.localization import file_retry_feedback, ranked_locations
 from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, source_windows
 from tests.benchmark.feedback import behavior_counts
-from tests.benchmark.real.adapter import EvaluationError, git, incident_input, read_buggy_source, score_candidate, validate
+from tests.benchmark.real.adapter import EvaluationError, checkout, git, incident_input, read_buggy_source, score_candidate, validate
 from tests.benchmark.scoring import patch_section
 from tests.benchmark.real.cache import TrialCache
 from tests.benchmark.real.manifest import DATASET, IMAGE, MANIFESTS, Bug
@@ -62,8 +63,17 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         attempts += 1
         scores = {}
         feedback = ""
+        patch = state["code_patch"]
+        parsed = parse_code_patch(patch)
         try:
-            scores = score_candidate(repo, bug, state["code_patch"])
+            try:
+                parsed["file"] = canonical_patch_path(
+                    workspace, parsed["file"], mounts=WORKSPACE_MOUNTS, unique_basename=True,
+                )
+                normalized = with_patch_path(patch, parsed["file"])
+            except PatchPathError as error:
+                raise EvaluationError("wrong_file", str(error)) from error
+            scores = score_candidate(repo, bug, normalized)
             passed = scores["fail_to_pass"] and scores["pass_to_pass"]
             category = None if passed else "wrong_fix"
             feedback = behavior_counts(scores["verdicts"], bug.fail_to_pass, bug.pass_to_pass)
@@ -73,12 +83,11 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
                 raise
             passed = False
             if category == "wrong_file":
-                rejected.add(parse_code_patch(state["code_patch"])["file"])
+                rejected.add(parsed["file"])
                 feedback = file_retry_feedback(rejected, locations)
             if category == "patch_fails_to_apply":
-                patch = state["code_patch"]
                 feedback = anchor_feedback(
-                    parse_code_patch(patch), patch_section(patch, "ORIGINAL", "FIXED"),
+                    parsed, patch_section(patch, "ORIGINAL", "FIXED"),
                     windows, read, str(error),
                 )
         return {
@@ -96,7 +105,8 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         state["candidate_locations"] = list(locations.values())
         state["source_context"] = "\n\n".join(window.render() for window in windows)
         state["service_contract"] = source_contracts(windows, read)
-        with TemporaryDirectory(prefix="incident-real-rag-") as path:
+        with (checkout(repo, bug.buggy_commit) as (workspace, _),
+              TemporaryDirectory(prefix="incident-real-rag-") as path):
             client = chromadb.PersistentClient(path=path)
             with closing(client) if hasattr(client, "close") else nullcontext(client):
                 collection = client.create_collection("real_benchmark_empty")

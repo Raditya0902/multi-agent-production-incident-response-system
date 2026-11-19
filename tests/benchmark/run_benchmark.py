@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.execution_agent import parse_code_patch
+from agents.patch_paths import PatchPathError, canonical_app_path, with_patch_path
 from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, read_local_source, source_windows
 from agents.state import create_initial_state
@@ -191,15 +192,26 @@ def _run_single(tc: dict, retrieve) -> dict:
     pipeline_error = None
     smoke_score = None
 
+    def evaluate(patch, *, held_out):
+        try:
+            path = canonical_app_path(SOURCE.parent, parse_code_patch(patch)["file"])
+            canonical = with_patch_path(patch, path)
+        except PatchPathError as error:
+            return Score(False, False, str(error))
+        return score_patch(target, canonical, held_out=held_out)
+
     def execute(state):
         nonlocal smoke_score
-        smoke_score = score_patch(target, state["code_patch"], held_out=False)
+        smoke_score = evaluate(state["code_patch"], held_out=False)
         if smoke_score.passed is None:
             # An unusable evaluator cannot supply meaningful Critic feedback.
             raise RuntimeError(smoke_score.detail)
         patch = state["code_patch"]
+        parsed = parse_code_patch(patch)
+        if "ORIGINAL must match exactly one source block" in smoke_score.detail:
+            parsed["file"] = canonical_app_path(SOURCE.parent, parsed["file"])
         feedback = anchor_feedback(
-            parse_code_patch(patch), patch_section(patch, "ORIGINAL", "FIXED"),
+            parsed, patch_section(patch, "ORIGINAL", "FIXED"),
             windows, read, smoke_score.detail,
         ) if not smoke_score.used_real_tests else service_counts(smoke_score.detail)
         return {
@@ -228,7 +240,7 @@ def _run_single(tc: dict, retrieve) -> dict:
         if smoke_score is not None and smoke_score.passed is None:
             score = smoke_score
         elif state["code_patch"]:
-            score = score_patch(target, state["code_patch"], held_out=True)
+            score = evaluate(state["code_patch"], held_out=True)
         else:
             score = Score(None, False, "Pipeline produced no candidate to score.")
 

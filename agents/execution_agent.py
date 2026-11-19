@@ -1,13 +1,15 @@
 import fnmatch
-import glob
 import os
 import re
 import sys
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Optional, Tuple
 
+from agents.patch_paths import PatchPathError, canonical_app_path
+from agents.source_context import production_path
 from agents.state import IncidentState
 
 
@@ -60,22 +62,6 @@ def find_real_test_file(module_filename: str) -> Optional[str]:
         for filename in filenames:
             if fnmatch.fnmatch(filename, f"*test*{stem}*.py"):
                 return os.path.join(directory, filename)
-    return None
-
-
-def find_source_file(module_filename: str) -> Optional[str]:
-    """Locate the actual source file in the project (checks app/ and project root)."""
-    candidates = [
-        os.path.join(_PROJECT_ROOT, "app", module_filename),
-        os.path.join(_PROJECT_ROOT, module_filename),
-    ]
-    for path in candidates:
-        if os.path.isfile(path):
-            return path
-    pattern = os.path.join(_PROJECT_ROOT, "**", module_filename)
-    matches = glob.glob(pattern, recursive=True)
-    if matches:
-        return matches[0]
     return None
 
 
@@ -305,12 +291,31 @@ def run_in_docker(test_dir: str, test_file: str = "test_fix.py") -> Tuple[str, b
 
 def execution_agent(state: IncidentState) -> dict:
     patch = parse_code_patch(state["code_patch"])
-    module_filename = os.path.basename(patch.get("file", ""))
+    requested_path = patch["file"]
+    root = Path(_PROJECT_ROOT)
+    try:
+        canonical = canonical_app_path(root, requested_path)
+    except PatchPathError as error:
+        # An unregistered bare module may still use the dashboard preview
+        # harness. It has no source destination and cannot be published.
+        missing_bare_module = (
+            "/" not in requested_path and production_path(requested_path)
+            and not (root / "app" / requested_path).exists()
+            and not (root / "app" / requested_path).is_symlink()
+            and find_real_test_file(requested_path) is None
+        )
+        if not missing_bare_module:
+            return {
+                "test_results": str(error), "tests_passed": False, "used_real_tests": False,
+                "retry_count": state.get("retry_count", 0) + 1, "status": "tests_failed",
+            }
+        canonical = None
+    module_filename = Path(canonical or requested_path).name
     used_real_tests = False
     test_dir = None
 
     real_test_path = find_real_test_file(module_filename) if module_filename else None
-    source_path = find_source_file(module_filename) if module_filename else None
+    source_path = root / canonical if canonical else None
 
     if real_test_path:
         test_dir = tempfile.mkdtemp(prefix="incident_sandbox_")

@@ -53,10 +53,13 @@ def test_missing_contract_never_invokes_pipeline_or_fallback(monkeypatch, tmp_pa
 
 def test_final_score_uses_heldout_only_after_graph_finishes(monkeypatch):
     events = []
-    patch = "===FIXED===\nif index < len(items): pass"
+    patch = (
+        "===FILE===\n/app/data_processing.py\n===ORIGINAL===\nresult = items[index]\n"
+        "===FIXED===\nif index < len(items): pass"
+    )
 
     def evaluate(target, candidate, *, held_out):
-        assert candidate == patch
+        assert candidate == patch.replace("/app/data_processing.py", "app/data_processing.py")
         events.append("held_out" if held_out else "smoke")
         return Score(not held_out, True, "held-out failure" if held_out else "smoke pass")
 
