@@ -1,0 +1,21 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-24",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "12394ca8423a438915fed996383b44471fc1139d",
+  "fixed_commit": "5d74344994da89ed01afd448f1c9d86b85e85351",
+  "source_path": "thefuck/types.py",
+  "test_file": "tests/test_types.py",
+  "oracle_files": [
+    "tests/test_types.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_types.py::TestCorrectedCommand::test_equality",
+    "tests/test_types.py::TestCorrectedCommand::test_hashable"
+  ],
+  "pass_to_pass": [
+    "tests/test_types.py::TestSortedCorrectedCommandsSequence::test_realises_generator_only_on_demand",
+    "tests/test_types.py::TestSortedCorrectedCommandsSequence::test_remove_duplicates",
+    "tests/test_types.py::test_rules_names_list"
+  ]
+}

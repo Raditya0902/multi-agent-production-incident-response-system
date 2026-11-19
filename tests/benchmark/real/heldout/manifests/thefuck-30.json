@@ -1,0 +1,39 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-30",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "de513cacb150049e3f95434f8d6d30b7ed1e0ea7",
+  "fixed_commit": "43fead02d3a24fef71534116c5550def0f56830c",
+  "source_path": "thefuck/rules/fix_file.py",
+  "test_file": "tests/rules/test_fix_file.py",
+  "oracle_files": [
+    "tests/rules/test_fix_file.py"
+  ],
+  "fail_to_pass": [
+    "tests/rules/test_fix_file.py::test_not_file[test0]",
+    "tests/rules/test_fix_file.py::test_not_file[test10]",
+    "tests/rules/test_fix_file.py::test_not_file[test11]",
+    "tests/rules/test_fix_file.py::test_not_file[test12]",
+    "tests/rules/test_fix_file.py::test_not_file[test13]",
+    "tests/rules/test_fix_file.py::test_not_file[test14]",
+    "tests/rules/test_fix_file.py::test_not_file[test15]",
+    "tests/rules/test_fix_file.py::test_not_file[test16]",
+    "tests/rules/test_fix_file.py::test_not_file[test17]",
+    "tests/rules/test_fix_file.py::test_not_file[test18]",
+    "tests/rules/test_fix_file.py::test_not_file[test19]",
+    "tests/rules/test_fix_file.py::test_not_file[test1]",
+    "tests/rules/test_fix_file.py::test_not_file[test2]",
+    "tests/rules/test_fix_file.py::test_not_file[test3]",
+    "tests/rules/test_fix_file.py::test_not_file[test4]",
+    "tests/rules/test_fix_file.py::test_not_file[test5]",
+    "tests/rules/test_fix_file.py::test_not_file[test6]",
+    "tests/rules/test_fix_file.py::test_not_file[test7]",
+    "tests/rules/test_fix_file.py::test_not_file[test8]",
+    "tests/rules/test_fix_file.py::test_not_file[test9]"
+  ],
+  "pass_to_pass": [
+    "tests/rules/test_fix_file.py::test_get_new_command[test0]",
+    "tests/rules/test_fix_file.py::test_get_new_command[test10]",
+    "tests/rules/test_fix_file.py::test_get_new_command[test11]"
+  ]
+}

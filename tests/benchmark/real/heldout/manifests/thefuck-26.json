@@ -1,0 +1,23 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-26",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "7cb0388ed0845545e878b29783bbf8e901a02745",
+  "fixed_commit": "feb3eee2a08f0cba4552373d728509bc90b561ab",
+  "source_path": "thefuck/rules/vagrant_up.py",
+  "test_file": "tests/rules/test_vagrant_up.py",
+  "oracle_files": [
+    "tests/rules/test_vagrant_up.py"
+  ],
+  "fail_to_pass": [
+    "tests/rules/test_vagrant_up.py::test_get_new_command[command0-vagrant up && vagrant ssh]",
+    "tests/rules/test_vagrant_up.py::test_get_new_command[command1-new_command1]",
+    "tests/rules/test_vagrant_up.py::test_get_new_command[command2-vagrant up && vagrant rdp]",
+    "tests/rules/test_vagrant_up.py::test_get_new_command[command3-new_command3]"
+  ],
+  "pass_to_pass": [
+    "tests/rules/test_vagrant_up.py::test_match[command0]",
+    "tests/rules/test_vagrant_up.py::test_match[command1]",
+    "tests/rules/test_vagrant_up.py::test_match[command2]"
+  ]
+}

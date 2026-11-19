@@ -1,0 +1,22 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-27",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "bc6b107066d3f1e60b4cfcaa8cf6399e98cf1b1c",
+  "fixed_commit": "1becd92b126a368d6e7d93aa8eea209414ce4aa2",
+  "source_path": "thefuck/rules/open.py",
+  "test_file": "tests/rules/test_open.py",
+  "oracle_files": [
+    "tests/rules/test_open.py"
+  ],
+  "fail_to_pass": [
+    "tests/rules/test_open.py::test_get_new_command[command6-xdg-open http://foo.io]",
+    "tests/rules/test_open.py::test_get_new_command[command7-gnome-open http://foo.io]",
+    "tests/rules/test_open.py::test_get_new_command[command8-kde-open http://foo.io]"
+  ],
+  "pass_to_pass": [
+    "tests/rules/test_open.py::test_match[command0]",
+    "tests/rules/test_open.py::test_match[command1]",
+    "tests/rules/test_open.py::test_match[command2]"
+  ]
+}

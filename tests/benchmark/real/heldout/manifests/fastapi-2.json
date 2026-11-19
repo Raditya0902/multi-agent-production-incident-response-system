@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "fastapi-2",
+  "repository": "https://github.com/tiangolo/fastapi",
+  "buggy_commit": "210af1fd3dc0f612a08fa02a0cb3f5adb81e5bfb",
+  "fixed_commit": "02441ff0313d5b471b662293244c53e712f1243f",
+  "source_path": "fastapi/routing.py",
+  "test_file": "tests/test_ws_router.py",
+  "oracle_files": [
+    "tests/test_ws_router.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_ws_router.py::test_router_ws_depends_with_override"
+  ],
+  "pass_to_pass": [
+    "tests/test_ws_router.py::test_app",
+    "tests/test_ws_router.py::test_prefix_router",
+    "tests/test_ws_router.py::test_router"
+  ]
+}

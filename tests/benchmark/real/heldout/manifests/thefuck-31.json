@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-31",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "66e2ec7e3f0d3f848c01d87bb3503b0ff90fc78a",
+  "fixed_commit": "1285303363bc420bd7606bd5f808e3f2b4f0e83f",
+  "source_path": "thefuck/rules/git_diff_staged.py",
+  "test_file": "tests/rules/test_git_diff_staged.py",
+  "oracle_files": [
+    "tests/rules/test_git_diff_staged.py"
+  ],
+  "fail_to_pass": [
+    "tests/rules/test_git_diff_staged.py::test_get_new_command[command1-git diff --staged foo]"
+  ],
+  "pass_to_pass": [
+    "tests/rules/test_git_diff_staged.py::test_match[command0]",
+    "tests/rules/test_git_diff_staged.py::test_match[command1]",
+    "tests/rules/test_git_diff_staged.py::test_not_match[command0]"
+  ]
+}

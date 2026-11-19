@@ -1,0 +1,22 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-23",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "4129ff2717cc6e6fa51d70cc4e6c31d56ef8e2c9",
+  "fixed_commit": "9a02e821cdc58a4aba2c0acc521fb25cacab87a5",
+  "source_path": "thefuck/utils.py",
+  "test_file": "tests/test_utils.py",
+  "oracle_files": [
+    "tests/test_utils.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_utils.py::TestCache::test_when_etag_changed",
+    "tests/test_utils.py::TestCache::test_with_blank_cache",
+    "tests/test_utils.py::TestCache::test_with_filled_cache"
+  ],
+  "pass_to_pass": [
+    "tests/test_utils.py::TestGetClosest::test_when_can_match",
+    "tests/test_utils.py::TestGetClosest::test_when_cant_match",
+    "tests/test_utils.py::TestGetClosest::test_without_fallback"
+  ]
+}

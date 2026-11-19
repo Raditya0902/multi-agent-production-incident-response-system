@@ -1,0 +1,27 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "thefuck-28",
+  "repository": "https://github.com/nvbn/thefuck",
+  "buggy_commit": "88831c424f569e6a55fc98883d3eeecc7d425b18",
+  "fixed_commit": "9b30ae0424607a4e268bd26eaee8ccb91a5588f9",
+  "source_path": "thefuck/rules/fix_file.py",
+  "test_file": "tests/rules/test_fix_file.py",
+  "oracle_files": [
+    "tests/rules/test_fix_file.py"
+  ],
+  "fail_to_pass": [
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test0]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test15]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test16]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test19]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test1]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test20]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test7]",
+    "tests/rules/test_fix_file.py::test_get_new_command_with_settings[test8]"
+  ],
+  "pass_to_pass": [
+    "tests/rules/test_fix_file.py::test_get_new_command[test0]",
+    "tests/rules/test_fix_file.py::test_get_new_command[test10]",
+    "tests/rules/test_fix_file.py::test_get_new_command[test11]"
+  ]
+}

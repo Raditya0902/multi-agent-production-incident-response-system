@@ -10,7 +10,7 @@ Set before inspecting individual candidates.
 - Record all screened candidates, including exclusions and reasons. Freeze 10–20 validated bugs before any model run. Stop screening at 15 validated bugs where feasible. Never replace a bug based on model performance.
 - Pin the BugsInPy snapshot, both upstream source revisions, source and test paths, the failing and passing node IDs, and the validated Docker dependency environment. Give agents only diagnostic frames from the buggy revision. Keep the fixed source, oracle, expected outputs, and Git metadata outside agent inputs.
 
-## Screening ledger
+## Development set screening ledger
 
 Dataset revision `11c5f1eea954a42132cfd06bf257766a7963e0fd`. The
 final ordered screen stopped at the 15th eligible case. Both revisions
@@ -33,7 +33,7 @@ exceeded the line limit. Black 19 and 20 validated in the trial but fell
 after the final ordered cutoff. Black 21–23 and the remaining BugsInPy
 projects were outside that cutoff. No model output informed selection.
 
-The [frozen manifests](manifests) pin the exact source commits, oracle
+The 15 [frozen development manifests](manifests) pin the exact source commits, oracle
 files, and test node IDs. The [validation record](validation.json) records
 each verdict and the Docker image used. This sample is weighted toward
 Black and small functional defects. Public bugs may appear in LLM
@@ -75,3 +75,63 @@ list. Complete attempts are cached per bug and trial under
 `tests/benchmark/results/real/`, keyed by the effective benchmark
 configuration. After a provider interruption, the same command resumes
 with the first missing trial.
+
+## Held-out selection protocol
+
+Apply the development eligibility criteria above to additional BugsInPy
+records on the same dataset snapshot. Prioritize unused projects in this
+order: FastAPI, HTTPie, and The Fuck. Within each project screen IDs in
+ascending order. Take qualifying cases in round-robin order across those
+projects to fill up to ten slots. If necessary, consider eligible Black
+cases outside the development set, with a maximum of two Black cases.
+
+Require the same pinned pytest nodes and identical oracle on the buggy
+and fixed source. Require the patch scorer to reject an unchanged buggy
+candidate through fail-to-pass while its pass-to-pass controls still pass.
+Validate offline and use zero model calls on held-out cases.
+
+### Frozen held-out set
+
+The ten [held-out manifests](heldout/manifests) are FastAPI 2 and The Fuck
+22–28, 30, and 31. Neither project appears in the development set. The
+Python 3.11 screen admitted no HTTPie cases and needed no Black cases.
+The Fuck accounts for nine of the ten cases.
+
+All ten reproduced on pinned buggy source and passed on pinned fixed
+source. The unchanged-patch control failed fail-to-pass and passed
+pass-to-pass for every case. The
+[validation record](heldout/validation.json) contains the image digest,
+per-node results, and exclusions for all 53 screened candidates. Held-out
+manifests live outside the development runner's manifest directory.
+
+To prepare the offline verifier, clone bare mirrors named `fastapi.git`
+and `thefuck.git` under `$repos`. Build the development image first, then
+the separate held-out image.
+
+```sh
+docker build -t incident-real-benchmark:stage-a tests/benchmark/real
+docker build -t incident-real-heldout:v0 tests/benchmark/real/heldout
+GROQ_API_KEY='' DEEPSEEK_API_KEY='' OPENAI_API_KEY='' FALLBACK_LLM_PROVIDER='' \
+python - "$repos" <<'PY'
+from pathlib import Path
+import sys
+from tests.benchmark.real import adapter
+from tests.benchmark.real.manifest import Bug
+
+adapter.IMAGE = "incident-real-heldout:v0"
+for path in sorted(Path("tests/benchmark/real/heldout/manifests").glob("*.json")):
+    bug = Bug.read(path)
+    repo = Path(sys.argv[1]) / f"{bug.project}.git"
+    assert adapter.validate(repo, bug)["valid"], bug.id
+    code = adapter.git(repo, "show", f"{bug.buggy_commit}:{bug.source_path}").decode()
+    if not code.endswith("\n"):
+        code += "\n"
+    unchanged = (
+        f"===FILE===\n{bug.source_path}\n===ORIGINAL===\n{code}"
+        f"===FIXED===\n{code}===EXPLANATION===\nUnchanged control."
+    )
+    score = adapter.score_candidate(repo, bug, unchanged)
+    assert not score["fail_to_pass"] and score["pass_to_pass"], bug.id
+    print(bug.id, "validated")
+PY
+```

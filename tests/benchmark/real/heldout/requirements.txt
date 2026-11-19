@@ -1,0 +1,17 @@
+pydantic==1.10.24
+starlette==0.13.2
+python-multipart==0.0.20
+email-validator==2.2.0
+dnspython==2.7.0
+psutil==7.0.0
+pygments==2.19.1
+flask==1.1.4
+werkzeug==1.0.1
+itsdangerous==1.1.0
+httpbin==0.7.0
+pytest-httpbin==1.0.0
+brotlipy==0.7.0
+decorator==5.2.1
+raven==6.10.0
+cffi==1.17.1
+pycparser==2.22
