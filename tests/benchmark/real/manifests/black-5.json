@@ -1,0 +1,21 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "black-5",
+  "repository": "https://github.com/psf/black",
+  "buggy_commit": "1bbb01b854d168d76ebe4bf78961c2152ae075d9",
+  "fixed_commit": "9394de150ebf0adc426523f46dc08e8b2b2b0b63",
+  "source_path": "black.py",
+  "test_file": "tests/test_black.py",
+  "oracle_files": [
+    "tests/data/function_trailing_comma.py",
+    "tests/test_black.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_function_trailing_comma"
+  ],
+  "pass_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_assertFormatEqual",
+    "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts",
+    "tests/test_black.py::BlackTestCase::test_async_as_identifier"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "black-14",
+  "repository": "https://github.com/psf/black",
+  "buggy_commit": "3bdd42389128bbbe8b64a8e050563f09bff99979",
+  "fixed_commit": "dd8bde6d2fbfe8a7a11093e761a0cb5837efa96a",
+  "source_path": "black.py",
+  "test_file": "tests/test_black.py",
+  "oracle_files": [
+    "tests/data/python2_unicode_literals.py",
+    "tests/test_black.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_get_future_imports"
+  ],
+  "pass_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_assertFormatEqual",
+    "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts",
+    "tests/test_black.py::BlackTestCase::test_black"
+  ]
+}

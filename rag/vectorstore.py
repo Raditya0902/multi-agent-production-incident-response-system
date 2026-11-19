@@ -80,11 +80,10 @@ def retrieve_context_with_scores(query: str, top_k: int = 3, *, collection=None)
     """Return (document, distance) tuples; distance is cosine distance (0=identical, 2=opposite)."""
     if collection is None:
         collection = _get_collection()
-    model = get_embedding_model()
-
     if collection.count() == 0:
         return []
 
+    model = get_embedding_model()
     query_embedding = model.encode(query).tolist()
     results = collection.query(
         query_embeddings=[query_embedding],

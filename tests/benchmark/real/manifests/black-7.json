@@ -1,0 +1,21 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "black-7",
+  "repository": "https://github.com/psf/black",
+  "buggy_commit": "18119d38466652ae818436cb497f601294ed4558",
+  "fixed_commit": "de806405d2934b629d67e2a6317ad7e826765a20",
+  "source_path": "black.py",
+  "test_file": "tests/test_black.py",
+  "oracle_files": [
+    "tests/data/tupleassign.py",
+    "tests/test_black.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_tuple_assign"
+  ],
+  "pass_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_assertFormatEqual",
+    "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts",
+    "tests/test_black.py::BlackTestCase::test_black"
+  ]
+}

@@ -1,0 +1,316 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "evaluator_image": "sha256:7f4d1c733bb61f3adb2880b449f753afd43d5b8775effeb7568fd2ce11a6bdde",
+  "cases": [
+    {
+      "id": "tqdm-8",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tqdm/tests/tests_tqdm.py::test_format_meter": "failed",
+          "tqdm/tests/tests_tqdm.py::test_all_defaults": "passed",
+          "tqdm/tests/tests_tqdm.py::test_ascii": "passed",
+          "tqdm/tests/tests_tqdm.py::test_big_min_interval": "passed"
+        },
+        "fixed": {
+          "tqdm/tests/tests_tqdm.py::test_format_meter": "passed",
+          "tqdm/tests/tests_tqdm.py::test_all_defaults": "passed",
+          "tqdm/tests/tests_tqdm.py::test_ascii": "passed",
+          "tqdm/tests/tests_tqdm.py::test_big_min_interval": "passed"
+        }
+      },
+      "runtime_seconds": 2.05
+    },
+    {
+      "id": "tqdm-9",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tqdm/tests/tests_tqdm.py::test_si_format": "failed",
+          "tqdm/tests/tests_tqdm.py::test_update": "failed",
+          "tqdm/tests/tests_tqdm.py::test_all_defaults": "passed",
+          "tqdm/tests/tests_tqdm.py::test_close": "passed",
+          "tqdm/tests/tests_tqdm.py::test_disable": "passed"
+        },
+        "fixed": {
+          "tqdm/tests/tests_tqdm.py::test_si_format": "passed",
+          "tqdm/tests/tests_tqdm.py::test_update": "passed",
+          "tqdm/tests/tests_tqdm.py::test_all_defaults": "passed",
+          "tqdm/tests/tests_tqdm.py::test_close": "passed",
+          "tqdm/tests/tests_tqdm.py::test_disable": "passed"
+        }
+      },
+      "runtime_seconds": 1.82
+    },
+    {
+      "id": "PySnooper-3",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_pysnooper.py::test_file_output": "failed",
+          "tests/test_pysnooper.py::test_depth": "passed",
+          "tests/test_pysnooper.py::test_method_and_prefix": "passed",
+          "tests/test_pysnooper.py::test_string_io": "passed"
+        },
+        "fixed": {
+          "tests/test_pysnooper.py::test_file_output": "passed",
+          "tests/test_pysnooper.py::test_depth": "passed",
+          "tests/test_pysnooper.py::test_method_and_prefix": "passed",
+          "tests/test_pysnooper.py::test_string_io": "passed"
+        }
+      },
+      "runtime_seconds": 1.66
+    },
+    {
+      "id": "cookiecutter-3",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_read_user_choice.py::test_click_invocation[1-hello]": "failed",
+          "tests/test_read_user_choice.py::test_click_invocation[2-world]": "failed",
+          "tests/test_read_user_choice.py::test_click_invocation[3-foo]": "failed",
+          "tests/test_read_user_choice.py::test_click_invocation[4-bar]": "failed",
+          "tests/test_read_user_choice.py::test_raise_if_options_is_not_a_non_empty_list": "passed"
+        },
+        "fixed": {
+          "tests/test_read_user_choice.py::test_click_invocation[1-hello]": "passed",
+          "tests/test_read_user_choice.py::test_click_invocation[2-world]": "passed",
+          "tests/test_read_user_choice.py::test_click_invocation[3-foo]": "passed",
+          "tests/test_read_user_choice.py::test_click_invocation[4-bar]": "passed",
+          "tests/test_read_user_choice.py::test_raise_if_options_is_not_a_non_empty_list": "passed"
+        }
+      },
+      "runtime_seconds": 2.11
+    },
+    {
+      "id": "black-4",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_beginning_backslash": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_async_as_identifier": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_beginning_backslash": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_async_as_identifier": "passed"
+        }
+      },
+      "runtime_seconds": 4.2
+    },
+    {
+      "id": "black-5",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_function_trailing_comma": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_async_as_identifier": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_function_trailing_comma": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_async_as_identifier": "passed"
+        }
+      },
+      "runtime_seconds": 3.88
+    },
+    {
+      "id": "black-7",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_tuple_assign": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_tuple_assign": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.44
+    },
+    {
+      "id": "black-8",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_comments7": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_comments7": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.57
+    },
+    {
+      "id": "black-9",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_python2_print_function": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_python2_print_function": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.51
+    },
+    {
+      "id": "black-10",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_comment_indentation": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_comment_indentation": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.51
+    },
+    {
+      "id": "black-11",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_comments6": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_comments6": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 6.37
+    },
+    {
+      "id": "black-12",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_bracket_match": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_bracket_match": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.92
+    },
+    {
+      "id": "black-13",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_python37": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_python37": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 5.78
+    },
+    {
+      "id": "black-14",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_get_future_imports": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_get_future_imports": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_assert_equivalent_different_asts": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed"
+        }
+      },
+      "runtime_seconds": 6.0
+    },
+    {
+      "id": "black-17",
+      "outcome": "selected",
+      "validation": {
+        "valid": true,
+        "buggy": {
+          "tests/test_black.py::BlackTestCase::test_empty": "failed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed",
+          "tests/test_black.py::BlackTestCase::test_broken_symlink": "passed"
+        },
+        "fixed": {
+          "tests/test_black.py::BlackTestCase::test_empty": "passed",
+          "tests/test_black.py::BlackTestCase::test_assertFormatEqual": "passed",
+          "tests/test_black.py::BlackTestCase::test_black": "passed",
+          "tests/test_black.py::BlackTestCase::test_broken_symlink": "passed"
+        }
+      },
+      "runtime_seconds": 5.2
+    }
+  ],
+  "environment": {
+    "platform": "linux/arm64",
+    "python": "3.11",
+    "network": "none",
+    "docker": "28.3.0"
+  }
+}

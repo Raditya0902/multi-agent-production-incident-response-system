@@ -1,0 +1,20 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "black-17",
+  "repository": "https://github.com/psf/black",
+  "buggy_commit": "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+  "fixed_commit": "7fc6ce990669464f5172b63fafa3724f5f308be3",
+  "source_path": "black.py",
+  "test_file": "tests/test_black.py",
+  "oracle_files": [
+    "tests/test_black.py"
+  ],
+  "fail_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_empty"
+  ],
+  "pass_to_pass": [
+    "tests/test_black.py::BlackTestCase::test_assertFormatEqual",
+    "tests/test_black.py::BlackTestCase::test_black",
+    "tests/test_black.py::BlackTestCase::test_broken_symlink"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "bugsinpy_commit": "11c5f1eea954a42132cfd06bf257766a7963e0fd",
+  "id": "tqdm-9",
+  "repository": "https://github.com/tqdm/tqdm",
+  "buggy_commit": "9da1d5d116aec7a23d8f6dc22d5e23ecb1c40a7c",
+  "fixed_commit": "d877c1dfb4739852105f7b967a8fceb869ac5042",
+  "source_path": "tqdm/_tqdm.py",
+  "test_file": "tqdm/tests/tests_tqdm.py",
+  "oracle_files": [
+    "tqdm/tests/tests_tqdm.py"
+  ],
+  "fail_to_pass": [
+    "tqdm/tests/tests_tqdm.py::test_si_format",
+    "tqdm/tests/tests_tqdm.py::test_update"
+  ],
+  "pass_to_pass": [
+    "tqdm/tests/tests_tqdm.py::test_all_defaults",
+    "tqdm/tests/tests_tqdm.py::test_close",
+    "tqdm/tests/tests_tqdm.py::test_disable"
+  ]
+}
