@@ -21,6 +21,7 @@ class IncidentState(TypedDict):
 
     source_context: NotRequired[str]
     service_contract: NotRequired[str]
+    candidate_locations: NotRequired[list[str]]
 
     # Fix Generator output
     code_patch: str

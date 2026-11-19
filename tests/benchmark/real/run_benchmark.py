@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 from contextlib import closing, nullcontext
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
@@ -14,6 +14,7 @@ from time import monotonic
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.execution_agent import parse_code_patch
+from agents.localization import file_retry_feedback, ranked_locations
 from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, source_windows
 from tests.benchmark.feedback import behavior_counts
@@ -52,7 +53,9 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
     attempts = 0
     state = {}
     windows = []
-    read = partial(read_buggy_source, repo, bug.buggy_commit)
+    read = cache(partial(read_buggy_source, repo, bug.buggy_commit))
+    locations = {}
+    rejected = set()
 
     def execute(state):
         nonlocal attempts, category, scores
@@ -69,6 +72,9 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
             if category not in FEEDBACK:
                 raise
             passed = False
+            if category == "wrong_file":
+                rejected.add(parse_code_patch(state["code_patch"])["file"])
+                feedback = file_retry_feedback(rejected, locations)
             if category == "patch_fails_to_apply":
                 patch = state["code_patch"]
                 feedback = anchor_feedback(
@@ -85,7 +91,9 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
     diagnostic = None
     try:
         state = create_initial_state(**incident_input(repo, bug))
-        windows = source_windows(state["raw_logs"], read)
+        locations = ranked_locations(state["raw_logs"], read)
+        windows = source_windows(state["raw_logs"], read, ranked_paths=tuple(locations))
+        state["candidate_locations"] = list(locations.values())
         state["source_context"] = "\n\n".join(window.render() for window in windows)
         state["service_contract"] = source_contracts(windows, read)
         with TemporaryDirectory(prefix="incident-real-rag-") as path:

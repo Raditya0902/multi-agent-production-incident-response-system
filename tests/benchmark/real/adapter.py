@@ -190,6 +190,7 @@ def incident_input(repo: Path, bug) -> dict:
     run = evaluate_revision(repo, bug, bug.buggy_commit, bug.fail_to_pass, trace=True)
     logs = []
     sources = {}
+    observed = {}
 
     def source_line(file, line):
         if file not in sources:
@@ -206,10 +207,16 @@ def incident_input(repo: Path, bug) -> dict:
             code = source_line(file, line)
             if code:
                 logs.append(f'  File "{file}", line {line}\n    {code}')
+        for file, line, function in result.get("followed_calls", ()):
+            if file not in observed and re.fullmatch(r"\w+", function):
+                code = source_line(file, line)
+                if code:
+                    observed[file] = f'  Followed call {function} in "{file}", line {line}\n    {code}'
         for file, line, function in result["calls"]:
             if not re.fullmatch(r"\w+", function):
                 continue
             code = source_line(file, line)
             if code:
                 logs.append(f'  Observed call {function} in "{file}", line {line}\n    {code}')
+    logs.extend(list(observed.values())[:8])
     return {"logs": "\n".join(dict.fromkeys(logs)), "complaints": [SYNTHETIC_COMPLAINT]}

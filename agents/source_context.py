@@ -7,8 +7,8 @@ from pathlib import Path, PurePosixPath
 from typing import Callable
 
 FRAME = re.compile(
-    r'^\s*(?:File|Observed call \w+ in) "([^"\n]+)", line (\d+)'
-    r'(?:, in ([\w.<>]+))?\n[ \t]+([^\n]+)', re.MULTILINE,
+    r'^\s*(?P<kind>File|(?:Observed|Followed) call \w+ in) "(?P<path>[^"\n]+)", line (?P<line>\d+)'
+    r'(?:, in (?P<function>[\w.<>]+))?\n[ \t]+(?P<code>[^\n]+)', re.MULTILINE,
 )
 NON_SOURCE = {"test", "tests", "testing", "fixtures", "sandbox", "agents", "reference_fixes", "heldout"}
 WINDOW_RADIUS = 10
@@ -58,18 +58,26 @@ class SourceWindow:
 
 def source_windows(
     logs: str, read: Callable[[str], str | None], *, mount: str | None = None, prefix: str = "",
+    ranked_paths: tuple[str, ...] = (),
 ) -> list[SourceWindow]:
     windows = []
     source_files = {}
-    for frame in reversed(list(FRAME.finditer(logs))):
-        path = trace_path(frame[1], mount, prefix)
+    frames = list(reversed(list(FRAME.finditer(logs))))
+    if ranked_paths:
+        priority = {path: index for index, path in enumerate(ranked_paths)}
+        frames.sort(key=lambda frame: (
+            priority.get(trace_path(frame["path"], mount, prefix), len(priority)),
+            {"File": 0, "Followed": 1, "Observed": 2}[frame["kind"].split()[0]],
+        ))
+    for frame in frames:
+        path = trace_path(frame["path"], mount, prefix)
         if not path:
             continue
         if path not in source_files:
             source_files[path] = (read(path) or "").splitlines()
         lines = source_files[path]
-        recorded = frame[4].strip()
-        center = int(frame[2]) - 1
+        recorded = frame["code"].strip()
+        center = int(frame["line"]) - 1
         if not 0 <= center < len(lines) or lines[center].strip() != recorded:
             candidates = [index for index, line in enumerate(lines) if line.strip() == recorded]
             if len(candidates) == 1:
@@ -87,9 +95,20 @@ def source_windows(
                 end -= 1
         if first <= center < end:
             windows.append(SourceWindow(path, first + 1, end, "\n".join(lines[first:end]), center + 1))
-        if len(windows) == MAX_WINDOWS:
+        if not ranked_paths and len(windows) == MAX_WINDOWS:
             break
-    return windows
+    if not ranked_paths:
+        return windows
+    # Reserve space for distinct candidates before adding more excerpts from
+    # a wrapper with many observed calls.
+    primary = {}
+    extra = []
+    for window in windows:
+        if window.path in primary:
+            extra.append(window)
+        else:
+            primary[window.path] = window
+    return [*primary.values(), *extra][:MAX_WINDOWS]
 
 
 def matching_blocks(source: str, original: str) -> int:

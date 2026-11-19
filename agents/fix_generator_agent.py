@@ -1,9 +1,10 @@
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents import llm
+from agents.localization import ranked_locations
 from agents.service_contract import source_contracts
 from agents.source_context import read_local_source, source_windows
 from agents.state import IncidentState
@@ -42,9 +43,13 @@ def fix_generator_agent(state: IncidentState) -> dict:
 
     context = state.get("source_context")
     contracts = state.get("service_contract", "")
+    locations = state.get("candidate_locations", [])
     if context is None:
-        read = partial(read_local_source, Path(__file__).resolve().parent.parent)
-        windows = source_windows(state["raw_logs"], read, mount="/app", prefix="app/")
+        read = cache(partial(read_local_source, Path(__file__).resolve().parent.parent))
+        aliases = {"mount": "/app", "prefix": "app/"}
+        ranked = ranked_locations(state["raw_logs"], read, **aliases)
+        locations = list(ranked.values())
+        windows = source_windows(state["raw_logs"], read, ranked_paths=tuple(ranked), **aliases)
         context = "\n\n".join(window.render() for window in windows)
         contracts = source_contracts(windows, read)
     if context:
@@ -56,6 +61,12 @@ def fix_generator_agent(state: IncidentState) -> dict:
             "lines when necessary to distinguish repeated snippets."
         )
 
+    if len(locations) > 1:
+        human_content += (
+            "\n\nRanked production locations observed in the incident:\n"
+            + "\n".join(locations) + "\n"
+            "Check which location owns the defective behavior. A wrapper can be where the error surfaces."
+        )
     if contracts:
         human_content += (
             "\n\nFunction signatures and return or raise statements observed in buggy source:\n"
