@@ -68,6 +68,10 @@ def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_pat
     monkeypatch.setattr(synthetic, "score_patch", score)
     outcome = synthetic._run_single(case, lambda *args, **kwargs: [])
     assert outcome["status"] == "failed"
+    first, last = outcome["diagnostics"]["attempts"]
+    assert first["feedback_shown_to_critic"] == "service_counts"
+    assert last["feedback_shown_to_critic"] is None
+    assert all(secret not in str(outcome["diagnostics"]) for secret in HIDDEN)
     assert outcome["score_detail"] == OUTPUT
     assert evaluations == [False, False, True]
     assert any("Service checks: 0 passed, 1 failed." in prompt for prompt in prompts)
@@ -115,6 +119,10 @@ def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_path):
     monkeypatch.setattr(real, "score_candidate", score)
     outcome = real.run_trial(Path("unused"), bug, 1)
     assert outcome["resolved"]
+    first, last = outcome["diagnostics"]["attempts"]
+    assert first["feedback_shown_to_critic"] == "behavior_counts"
+    assert last["feedback_shown_to_critic"] is None
+    assert all(secret not in str(outcome["diagnostics"]) for secret in HIDDEN)
     assert outcome["attempts"] == 2
     assert any("Previously passing checks: 0 passed, 1 failed." in prompt for prompt in prompts)
     assert any("PREVIOUS FIX FAILED" in prompt for prompt in prompts)

@@ -25,8 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from agents import primary_llm_settings
 from agents.benchmark_usage import benchmark_usage, usage_delta
+from agents.critic_agent import critic_agent
 from agents.execution_agent import parse_code_patch
-from agents.patch_paths import PatchPathError, canonical_app_path, with_patch_path
+from agents.patch_paths import APP_MOUNTS, PatchPathError, canonical_app_path, with_patch_path
 from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, read_local_source, source_windows
 from agents.state import create_initial_state
@@ -34,6 +35,7 @@ from agents.root_cause_agent import root_cause_agent
 from graph.workflow import build_workflow
 from rag.ingestion import INCIDENTS_DIR, _load_docs_from_dir
 from rag.vectorstore import add_documents, retrieve_context_with_scores
+from tests.benchmark.attempt_trace import AttemptTrace
 from tests.benchmark.feedback import service_counts
 from tests.benchmark.ground_truth import GROUND_TRUTH
 from tests.benchmark.scoring import SOURCE, Score, contract_paths, patch_section, score_patch
@@ -191,29 +193,57 @@ def _run_single(tc: dict, retrieve) -> dict:
     started = time.monotonic()
     pipeline_error = None
     smoke_score = None
+    trace = AttemptTrace(windows, read)
 
-    def evaluate(patch, *, held_out):
+    def evaluate(patch, requested, *, held_out):
         try:
-            path = canonical_app_path(SOURCE.parent, parse_code_patch(patch)["file"])
+            path = canonical_app_path(SOURCE.parent, requested)
             canonical = with_patch_path(patch, path)
         except PatchPathError as error:
-            return Score(False, False, str(error))
-        return score_patch(target, canonical, held_out=held_out)
+            return Score(False, False, str(error)), None
+        return score_patch(target, canonical, held_out=held_out), path
+
+    def critique(state):
+        trace.mark_critic()
+        return critic_agent(state)
 
     def execute(state):
         nonlocal smoke_score
-        smoke_score = evaluate(state["code_patch"], held_out=False)
+        patch = state["code_patch"]
+        parsed = parse_code_patch(patch)
+        requested = parsed["file"]
+        original = patch_section(patch, "ORIGINAL", "FIXED")
+        smoke_score, path = evaluate(patch, requested, held_out=False)
+
+        feedback = ""
+        feedback_kind = None
+        if smoke_score.passed is None:
+            outcome = "test_environment_failure"
+        elif smoke_score.passed:
+            outcome = "resolved"
+        elif smoke_score.used_real_tests:
+            outcome = "wrong_fix"
+            feedback_kind = "service_counts"
+        elif path is None or path != f"app/{target}":
+            outcome = feedback_kind = "wrong_file"
+        else:
+            outcome = feedback_kind = "patch_fails_to_apply"
+
+        if smoke_score.used_real_tests:
+            feedback = service_counts(smoke_score.detail)
+        elif path:
+            parsed["file"] = path
+            feedback = anchor_feedback(parsed, original, windows, read, smoke_score.detail)
+            if feedback:
+                feedback_kind = "anchor_excerpt"
+
+        trace.record(
+            requested=requested, path=path, mounts=APP_MOUNTS,
+            original=original, outcome=outcome, feedback=feedback_kind,
+        )
         if smoke_score.passed is None:
             # An unusable evaluator cannot supply meaningful Critic feedback.
             raise RuntimeError(smoke_score.detail)
-        patch = state["code_patch"]
-        parsed = parse_code_patch(patch)
-        if "ORIGINAL must match exactly one source block" in smoke_score.detail:
-            parsed["file"] = canonical_app_path(SOURCE.parent, parsed["file"])
-        feedback = anchor_feedback(
-            parsed, patch_section(patch, "ORIGINAL", "FIXED"),
-            windows, read, smoke_score.detail,
-        ) if not smoke_score.used_real_tests else service_counts(smoke_score.detail)
         return {
             "tests_passed": smoke_score.passed,
             "used_real_tests": smoke_score.used_real_tests,
@@ -226,7 +256,7 @@ def _run_single(tc: dict, retrieve) -> dict:
         score = Score(None, False, "Required real pytest contract is missing.")
     else:
         pipeline = build_workflow(
-            diagnose=partial(root_cause_agent, retrieve=retrieve), execute=execute,
+            diagnose=partial(root_cause_agent, retrieve=retrieve), execute=execute, critique=critique,
         )
         try:
             for step in pipeline.stream(state, stream_mode="updates"):
@@ -240,7 +270,8 @@ def _run_single(tc: dict, retrieve) -> dict:
         if smoke_score is not None and smoke_score.passed is None:
             score = smoke_score
         elif state["code_patch"]:
-            score = evaluate(state["code_patch"], held_out=True)
+            patch = state["code_patch"]
+            score, _ = evaluate(patch, parse_code_patch(patch)["file"], held_out=True)
         else:
             score = Score(None, False, "Pipeline produced no candidate to score.")
 
@@ -264,6 +295,7 @@ def _run_single(tc: dict, retrieve) -> dict:
         "severity": state["severity"],
         "score_detail": score.detail,
         "error": pipeline_error,
+        "diagnostics": trace.payload(),
     }
 
 

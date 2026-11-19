@@ -18,6 +18,7 @@ from agents.patch_paths import PatchPathError, WORKSPACE_MOUNTS, canonical_patch
 from agents.localization import file_retry_feedback, ranked_locations
 from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, source_windows
+from tests.benchmark.attempt_trace import AttemptTrace
 from tests.benchmark.feedback import behavior_counts
 from tests.benchmark.real.adapter import EvaluationError, checkout, git, incident_input, read_buggy_source, score_candidate, validate
 from tests.benchmark.scoring import patch_section
@@ -43,6 +44,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
     import chromadb
 
     from agents import _is_daily_quota_error, _is_rate_limit_error, is_using_fallback
+    from agents.critic_agent import critic_agent
     from agents.root_cause_agent import root_cause_agent
     from agents.state import create_initial_state
     from graph.workflow import build_workflow
@@ -57,6 +59,11 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
     read = cache(partial(read_buggy_source, repo, bug.buggy_commit))
     locations = {}
     rejected = set()
+    trace = AttemptTrace([], read)
+
+    def critique(state):
+        trace.mark_critic()
+        return critic_agent(state)
 
     def execute(state):
         nonlocal attempts, category, scores
@@ -65,31 +72,49 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         feedback = ""
         patch = state["code_patch"]
         parsed = parse_code_patch(patch)
+        requested = parsed["file"]
+        path = None
+        original = patch_section(patch, "ORIGINAL", "FIXED")
+        outcome = "execution_interrupted"
+        feedback_kind = None
         try:
             try:
                 parsed["file"] = canonical_patch_path(
                     workspace, parsed["file"], mounts=WORKSPACE_MOUNTS, unique_basename=True,
                 )
-                normalized = with_patch_path(patch, parsed["file"])
+                path = parsed["file"]
+                normalized = with_patch_path(patch, path)
             except PatchPathError as error:
                 raise EvaluationError("wrong_file", str(error)) from error
             scores = score_candidate(repo, bug, normalized)
             passed = scores["fail_to_pass"] and scores["pass_to_pass"]
             category = None if passed else "wrong_fix"
+            outcome = category or "resolved"
+            feedback_kind = None if passed else "behavior_counts"
             feedback = behavior_counts(scores["verdicts"], bug.fail_to_pass, bug.pass_to_pass)
         except EvaluationError as error:
             category = error.category
+            outcome = category
             if category not in FEEDBACK:
                 raise
             passed = False
+            feedback_kind = category
             if category == "wrong_file":
                 rejected.add(parsed["file"])
                 feedback = file_retry_feedback(rejected, locations)
+                if feedback:
+                    feedback_kind = "alternate_locations"
             if category == "patch_fails_to_apply":
                 feedback = anchor_feedback(
-                    parsed, patch_section(patch, "ORIGINAL", "FIXED"),
-                    windows, read, str(error),
+                    parsed, original, windows, read, str(error),
                 )
+                if feedback:
+                    feedback_kind = "anchor_excerpt"
+        finally:
+            trace.record(
+                requested=requested, path=path, mounts=WORKSPACE_MOUNTS,
+                original=original, outcome=outcome, feedback=feedback_kind,
+            )
         return {
             "tests_passed": passed,
             "used_real_tests": bool(scores),
@@ -102,6 +127,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         state = create_initial_state(**incident_input(repo, bug))
         locations = ranked_locations(state["raw_logs"], read)
         windows = source_windows(state["raw_logs"], read, ranked_paths=tuple(locations))
+        trace = AttemptTrace(windows, read)
         state["candidate_locations"] = list(locations.values())
         state["source_context"] = "\n\n".join(window.render() for window in windows)
         state["service_contract"] = source_contracts(windows, read)
@@ -112,7 +138,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
                 collection = client.create_collection("real_benchmark_empty")
                 retrieve = partial(retrieve_context_with_scores, collection=collection)
                 diagnose = partial(root_cause_agent, retrieve=retrieve)
-                workflow = build_workflow(diagnose=diagnose, execute=execute)
+                workflow = build_workflow(diagnose=diagnose, execute=execute, critique=critique)
                 for step in workflow.stream(state, stream_mode="updates"):
                     for update in step.values():
                         state.update(update)
@@ -148,6 +174,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         "failure_category": None if resolved else category,
         "diagnostic": diagnostic,
         "generated_patch": state.get("code_patch", ""),
+        "diagnostics": trace.payload(),
     }
 
 
