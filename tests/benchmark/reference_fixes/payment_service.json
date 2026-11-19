@@ -1,0 +1,4 @@
+{
+  "original": "amount = payload[\"transaction\"][\"amount\"]",
+  "fixed": "transaction = payload.get(\"transaction\")\nif not isinstance(transaction, dict) or \"amount\" not in transaction:\n    raise PaymentError(\"Missing transaction amount\")\namount = transaction[\"amount\"]"
+}

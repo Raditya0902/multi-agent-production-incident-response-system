@@ -1,0 +1,4 @@
+{
+  "original": "result = session.execute(query)",
+  "fixed": "try:\n    result = session.execute(query)\nexcept TimeoutError as error:\n    raise QueryTimeoutError(str(error)) from error"
+}

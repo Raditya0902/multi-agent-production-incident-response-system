@@ -214,7 +214,8 @@ _BENCH_ROOT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "tests", "benchmark",
 )
-_LATEST_PATH = os.path.join(_BENCH_ROOT, "results", "latest.json")
+_LATEST_PATH = os.path.join(_BENCH_ROOT, "results", "synthetic-latest.json")
+_LEGACY_PATH = os.path.join(_BENCH_ROOT, "results", "latest.json")
 
 bench_col1, bench_col2 = st.columns([3, 1])
 with bench_col2:
@@ -236,24 +237,37 @@ if run_bench:
         st.error(f"Benchmark failed (exit {proc.returncode}).")
     st.code(proc.stdout + proc.stderr, language="text")
 
-if os.path.isfile(_LATEST_PATH):
+result_path = _LATEST_PATH if os.path.isfile(_LATEST_PATH) else _LEGACY_PATH
+if os.path.isfile(result_path):
     try:
-        with open(_LATEST_PATH, "r", encoding="utf-8") as f:
+        with open(result_path, "r", encoding="utf-8") as f:
             bench_data = json.load(f)
 
         metrics = bench_data.get("metrics", {})
         scenarios = bench_data.get("scenarios", [])
         run_at = bench_data.get("run_at", "unknown")
 
-        st.caption(f"Last run: {run_at}")
+        current = bench_data.get("schema_version") == 2
+        mode = "Synthetic regression suite · auto-approve" if current else "Historical benchmark · legacy scoring"
+        st.caption(f"{mode} · {run_at}")
+
+        def format_metric(key, unit="%"):
+            value = metrics.get(key)
+            return f"{value:.1f}{unit}" if value is not None else "—"
 
         bm1, bm2, bm3, bm4, bm5, bm6 = st.columns(6)
-        bm1.metric("Patch Correctness", f"{metrics.get('patch_correctness_pct', 0):.1f}%")
-        bm2.metric("1st Attempt Success", f"{metrics.get('first_attempt_success_rate', 0):.1f}%")
-        bm3.metric("Retry Success Rate", f"{metrics.get('retry_success_rate', 0):.1f}%")
-        bm4.metric("False Positive Rate", f"{metrics.get('false_positive_rate', 0):.1f}%")
-        bm5.metric("Avg Run Time", f"{metrics.get('avg_run_time_seconds', 0):.1f}s")
-        bm6.metric("Escalation Rate", f"{metrics.get('escalation_rate', 0):.1f}%")
+        if current:
+            bm1.metric("Resolved", format_metric("resolved_pct"))
+            bm4.metric("Invalid / Unscored", metrics["invalid_count"])
+            st.caption(f"Pattern match {format_metric('pattern_match_pct')}")
+            st.dataframe([metrics["disagreement_matrix"]], hide_index=True, use_container_width=True)
+        else:
+            bm1.metric("Patch Correctness", format_metric("patch_correctness_pct"))
+            bm4.metric("Legacy False Positive Rate", format_metric("false_positive_rate"))
+        bm2.metric("1st Attempt Success", format_metric("first_attempt_success_rate"))
+        bm3.metric("Retry Success Rate", format_metric("retry_success_rate"))
+        bm5.metric("Avg Run Time", format_metric("avg_run_time_seconds", "s"))
+        bm6.metric("Escalation Rate", format_metric("escalation_rate"))
 
         if scenarios:
             import pandas as pd
@@ -261,10 +275,9 @@ if os.path.isfile(_LATEST_PATH):
                 "ID": r["id"],
                 "Name": r["name"],
                 "File": r["target_file"],
-                "Pass": "✓" if r["tests_passed"] else ("ESC" if r["escalated"] else "✗"),
-                "Correct": "✓" if r["patch_correct"] else "✗",
-                "False+": "⚠" if r["false_positive"] else "",
-                "Retries": r["retry_count"],
+                "Outcome": r["status"] if current else ("pass" if r["tests_passed"] else "fail"),
+                "Pattern match": r["pattern_match"] if current else r["patch_correct"],
+                "Attempts": r["attempts"] if current else r["retry_count"],
                 "Time (s)": r["elapsed"],
             } for r in scenarios])
             st.dataframe(df, use_container_width=True, hide_index=True)

@@ -1,0 +1,4 @@
+{
+  "original": "response = service_registry[service_name]",
+  "fixed": "response = service_registry.get(service_name)\nif response is None:\n    return {\"error\": \"service unavailable\", \"status\": 503}"
+}

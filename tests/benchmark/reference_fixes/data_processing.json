@@ -1,0 +1,4 @@
+{
+  "original": "result = items[index]",
+  "fixed": "try:\n    result = items[index]\nexcept IndexError:\n    return None"
+}

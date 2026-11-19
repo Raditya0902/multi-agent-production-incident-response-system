@@ -38,12 +38,13 @@ def get_embedding_model():
     return _embedding_model
 
 
-def add_documents(documents: List[dict]) -> None:
+def add_documents(documents: List[dict], *, collection=None) -> None:
     """Add or update documents in the vector store.
 
     Each document dict must have: id (str), content (str), metadata (dict, optional).
     """
-    collection = _get_collection()
+    if collection is None:
+        collection = _get_collection()
     model = get_embedding_model()
 
     ids = [doc["id"] for doc in documents]
@@ -75,9 +76,10 @@ def retrieve_context(query: str, top_k: int = 3) -> List[str]:
     return results["documents"][0] if results["documents"] else []
 
 
-def retrieve_context_with_scores(query: str, top_k: int = 3) -> List[tuple]:
+def retrieve_context_with_scores(query: str, top_k: int = 3, *, collection=None) -> List[tuple]:
     """Return (document, distance) tuples; distance is cosine distance (0=identical, 2=opposite)."""
-    collection = _get_collection()
+    if collection is None:
+        collection = _get_collection()
     model = get_embedding_model()
 
     if collection.count() == 0:

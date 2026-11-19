@@ -1,3 +1,4 @@
+import fnmatch
 import glob
 import os
 import re
@@ -50,10 +51,15 @@ def find_real_test_file(module_filename: str) -> Optional[str]:
         if os.path.isfile(path):
             return path
 
-    pattern = os.path.join(_PROJECT_ROOT, "**", f"*test*{stem}*")
-    matches = glob.glob(pattern, recursive=True)
-    if matches:
-        return matches[0]
+    benchmark_dir = os.path.join(_PROJECT_ROOT, "tests", "benchmark")
+    for directory, subdirs, filenames in os.walk(_PROJECT_ROOT):
+        subdirs[:] = [
+            name for name in subdirs
+            if not name.startswith(".") and os.path.join(directory, name) != benchmark_dir
+        ]
+        for filename in filenames:
+            if fnmatch.fnmatch(filename, f"*test*{stem}*.py"):
+                return os.path.join(directory, filename)
     return None
 
 

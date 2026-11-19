@@ -1,0 +1,4 @@
+{
+  "original": "rate = successful_orders / total_sessions",
+  "fixed": "rate = successful_orders / total_sessions if total_sessions else 0.0"
+}

@@ -1,0 +1,4 @@
+{
+  "original": "if order[\"items\"][0][\"quantity\"] < 0:\n    raise OrderError(\"Item quantity cannot be negative\")",
+  "fixed": "if not items:\n    raise OrderError(\"An order must contain at least one item\")\nif any(item[\"quantity\"] < 0 for item in items):\n    raise OrderError(\"Item quantity cannot be negative\")"
+}

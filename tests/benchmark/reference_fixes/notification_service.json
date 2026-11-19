@@ -1,0 +1,4 @@
+{
+  "original": "recipient = user_repo.find_by_id(user_id).email",
+  "fixed": "user = user_repo.find_by_id(user_id)\nif user is None:\n    return\nrecipient = user.email"
+}

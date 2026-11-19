@@ -1,5 +1,5 @@
 """
-Read tests/benchmark/results/latest.json and print a Markdown summary table.
+Read the latest synthetic regression results and print a Markdown summary table.
 
 Usage:
     python scripts/export_benchmark_report.py
@@ -11,15 +11,18 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-RESULTS_PATH = Path(__file__).parent.parent / "tests" / "benchmark" / "results" / "latest.json"
+RESULTS_DIR = Path(__file__).parent.parent / "tests" / "benchmark" / "results"
 
 
 def _load_results() -> dict:
-    if not RESULTS_PATH.exists():
-        print(f"Error: {RESULTS_PATH} not found. Run the benchmark first:", file=sys.stderr)
+    results = RESULTS_DIR / "synthetic-latest.json"
+    if not results.exists():
+        results = RESULTS_DIR / "latest.json"
+    if not results.exists():
+        print(f"Error: no result found in {RESULTS_DIR}. Run the benchmark first:", file=sys.stderr)
         print("  python -m tests.benchmark.run_benchmark", file=sys.stderr)
         sys.exit(1)
-    with RESULTS_PATH.open() as f:
+    with results.open() as f:
         return json.load(f)
 
 
@@ -27,7 +30,38 @@ def _severity_badge(severity: str) -> str:
     return {"P0": "🔴 P0", "P1": "🟠 P1", "P2": "🟡 P2"}.get(severity, severity)
 
 
+def _build_synthetic_report(data: dict) -> str:
+    metrics = data["metrics"]
+    matrix = metrics["disagreement_matrix"]
+    lines = [
+        "# Synthetic regression suite",
+        "",
+        f"Run {data['run_at']} · auto-approve",
+        "",
+        f"Resolved **{metrics['resolved_count']}/{metrics['total_cases']}** with service and held-out pytest.",
+        f"Invalid / unscored **{metrics['invalid_count']}**.",
+        "",
+        "| Both | Tests only | Pattern only | Neither | Unscored |",
+        "|---|---|---|---|---|",
+        f"| {matrix['both']} | {matrix['tests_only']} | {matrix['pattern_only']} | "
+        f"{matrix['neither']} | {metrics['matrix_unscored_count']} |",
+        "",
+        "| Scenario | Status | Real tests exercised | Pattern match | Retries | Time |",
+        "|---|---|---|---|---|---|",
+    ]
+    for scenario in data["scenarios"]:
+        pattern = {None: "—", True: "yes", False: "no"}[scenario["pattern_match"]]
+        used = "yes" if scenario["used_real_tests"] else "no"
+        lines.append(
+            f"| {scenario['name']} | {scenario['status']} | {used} | {pattern} | "
+            f"{scenario['retries']} | {scenario['elapsed']:.2f}s |"
+        )
+    return "\n".join(lines)
+
+
 def _build_report(data: dict) -> str:
+    if data.get("schema_version") == 2:
+        return _build_synthetic_report(data)
     run_at = data.get("run_at", "unknown")
     metrics = data.get("metrics", {})
     scenarios = data.get("scenarios", [])
@@ -39,7 +73,7 @@ def _build_report(data: dict) -> str:
         run_date = run_at
 
     lines = [
-        "# Benchmark Report",
+        "# Historical benchmark report (legacy scoring)",
         "",
         f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}  ",
         f"**Benchmark run:** {run_date}",

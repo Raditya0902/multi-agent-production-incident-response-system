@@ -7,8 +7,8 @@ Usage:
     python -m tests.benchmark.run_benchmark --max 3   # run only first N cases
 
 Outputs:
-    Printed table + tests/benchmark/results/latest.json
-    With --save-history: also appends to tests/benchmark/results/history.jsonl
+    Printed table + tests/benchmark/results/synthetic-latest.json
+    With --save-history: also appends to tests/benchmark/results/synthetic-history.jsonl
 """
 
 import argparse
@@ -16,15 +16,22 @@ import json
 import os
 import sys
 import time
+from functools import partial
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from agents.state import create_initial_state
-from graph.workflow import app as pipeline_app
+from agents.root_cause_agent import root_cause_agent
+from graph.workflow import build_workflow
+from rag.ingestion import INCIDENTS_DIR, _load_docs_from_dir
+from rag.vectorstore import add_documents, retrieve_context_with_scores
 from tests.benchmark.ground_truth import GROUND_TRUTH
+from tests.benchmark.scoring import Score, contract_paths, score_patch
 
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
+RESULTS_DIR = Path(__file__).parent / "results"
 
 # ---------------------------------------------------------------------------
 # Test case definitions (drawn from test_cases.txt)
@@ -166,138 +173,175 @@ def _check_patch_correctness(patch_text: str, target_file: str) -> bool:
     return pattern.lower() in text_lower
 
 
-def _run_single(tc: dict) -> dict:
+def _run_single(tc: dict, retrieve) -> dict:
+    target = tc["target_file"]
     state = create_initial_state(complaints=tc["complaints"], logs=tc["logs"])
-    t0 = time.time()
-    try:
-        result = pipeline_app.invoke(state)
-        elapsed = time.time() - t0
-        patch_correct = _check_patch_correctness(
-            result.get("code_patch", ""), tc["target_file"]
+    started = time.monotonic()
+    pipeline_error = None
+    smoke_score = None
+
+    def execute(state):
+        nonlocal smoke_score
+        smoke_score = score_patch(target, state["code_patch"], held_out=False)
+        if smoke_score.passed is None:
+            # An unusable evaluator cannot supply meaningful Critic feedback.
+            raise RuntimeError(smoke_score.detail)
+        return {
+            "tests_passed": smoke_score.passed,
+            "used_real_tests": smoke_score.used_real_tests,
+            "test_results": smoke_score.detail,
+            "retry_count": state["retry_count"] + 1,
+            "status": "tests_passed" if smoke_score.passed else "tests_failed",
+        }
+
+    if not all(path.is_file() for path in contract_paths(target, held_out=True)):
+        score = Score(None, False, "Required real pytest contract is missing.")
+    else:
+        pipeline = build_workflow(
+            diagnose=partial(root_cause_agent, retrieve=retrieve), execute=execute,
         )
-        # False positive: tests passed but patch doesn't contain the correct pattern
-        false_positive = bool(result.get("tests_passed")) and not patch_correct
-        return {
-            "id": tc["id"],
-            "name": tc["name"],
-            "target_file": tc["target_file"],
-            "tests_passed": bool(result.get("tests_passed")),
-            "escalated": bool(result.get("escalate_to_human")),
-            "retry_count": result.get("retry_count", 0),
-            "patch_correct": patch_correct,
-            "false_positive": false_positive,
-            "elapsed": round(elapsed, 1),
-            "severity": result.get("severity", ""),
-            "error": None,
-        }
-    except Exception as e:
-        elapsed = time.time() - t0
-        return {
-            "id": tc["id"],
-            "name": tc["name"],
-            "target_file": tc["target_file"],
-            "tests_passed": False,
-            "escalated": False,
-            "retry_count": 0,
-            "patch_correct": False,
-            "false_positive": False,
-            "elapsed": round(elapsed, 1),
-            "severity": "",
-            "error": str(e),
-        }
+        try:
+            for step in pipeline.stream(state, stream_mode="updates"):
+                for update in step.values():
+                    state.update(update)
+        except Exception as error:
+            pipeline_error = str(error)
+
+        if smoke_score is not None and smoke_score.passed is None:
+            score = smoke_score
+        elif state["code_patch"]:
+            score = score_patch(target, state["code_patch"], held_out=True)
+        else:
+            score = Score(None, False, "Pipeline produced no candidate to score.")
+
+    patch = state["code_patch"]
+    attempts = state["retry_count"]
+    if smoke_score is not None and smoke_score.passed is None:
+        attempts += 1
+    return {
+        "id": tc["id"],
+        "name": tc["name"],
+        "target_file": target,
+        "status": {None: "invalid", False: "failed", True: "resolved"}[score.passed],
+        "tests_passed": score.passed,
+        "pattern_match": _check_patch_correctness(patch, target) if patch else None,
+        "used_real_tests": score.used_real_tests,
+        "attempts": attempts,
+        "retries": max(0, attempts - 1),
+        "elapsed": round(time.monotonic() - started, 2),
+        "generated_patch": patch,
+        "escalated": state["escalate_to_human"],
+        "severity": state["severity"],
+        "score_detail": score.detail,
+        "error": pipeline_error,
+    }
 
 
-def _compute_metrics(scenario_results: list) -> dict:
-    n = len(scenario_results)
-    if n == 0:
-        return {}
+def _compute_metrics(scenarios: list[dict]) -> dict:
+    matrix = {"both": 0, "tests_only": 0, "pattern_only": 0, "neither": 0}
+    cells = {
+        (True, True): "both",
+        (True, False): "tests_only",
+        (False, True): "pattern_only",
+        (False, False): "neither",
+    }
+    for scenario in scenarios:
+        cell = cells.get((scenario["tests_passed"], scenario["pattern_match"]))
+        if cell:
+            matrix[cell] += 1
 
-    passed = [r for r in scenario_results if r["tests_passed"]]
-    correct = [r for r in scenario_results if r["patch_correct"]]
-    first_attempt = [r for r in scenario_results if r["tests_passed"] and r["retry_count"] <= 1]
-    retried = [r for r in scenario_results if r["retry_count"] > 1]
-    retry_success = [r for r in retried if r["tests_passed"]]
-    false_positives = [r for r in scenario_results if r["false_positive"]]
-    escalated = [r for r in scenario_results if r["escalated"]]
+    total = len(scenarios)
+    passed = [s for s in scenarios if s["tests_passed"] is True]
+    invalid = sum(s["tests_passed"] is None for s in scenarios)
+    retried = [s for s in scenarios if s["retries"] > 0]
+
+    def pct(count, denominator):
+        return round(100 * count / denominator, 1) if denominator else None
 
     return {
-        "total_cases": n,
-        "patch_correctness_pct": round(len(correct) / n * 100, 1),
-        "first_attempt_success_rate": round(len(first_attempt) / n * 100, 1),
-        "retry_success_rate": round(len(retry_success) / max(len(retried), 1) * 100, 1),
-        "false_positive_rate": round(len(false_positives) / max(len(passed), 1) * 100, 1),
-        "avg_run_time_seconds": round(sum(r["elapsed"] for r in scenario_results) / n, 1),
-        "escalation_rate": round(len(escalated) / n * 100, 1),
+        "total_cases": total,
+        "resolved_count": len(passed),
+        "invalid_count": invalid,
+        "resolved_pct": pct(len(passed), total),
+        "pattern_match_pct": pct(
+            sum(s["pattern_match"] is True for s in scenarios),
+            sum(s["pattern_match"] is not None for s in scenarios),
+        ),
+        "first_attempt_success_rate": pct(sum(s["attempts"] == 1 for s in passed), total),
+        "retry_success_rate": pct(sum(s["tests_passed"] is True for s in retried), len(retried)),
+        "avg_run_time_seconds": round(sum(s["elapsed"] for s in scenarios) / total, 2) if total else None,
+        "escalation_rate": pct(sum(s["escalated"] for s in scenarios), total),
+        "disagreement_matrix": matrix,
+        "matrix_unscored_count": total - sum(matrix.values()),
     }
 
 
-def _print_table(scenario_results: list, metrics: dict) -> None:
-    print("\n" + "=" * 80)
-    print("  BENCHMARK RESULTS")
-    print("=" * 80)
-    header = f"{'#':<3} {'Name':<38} {'File':<24} {'Pass':<5} {'Correct':<8} {'Retries':<8} {'Time':<6}"
-    print(header)
-    print("-" * 80)
-    for r in scenario_results:
-        status = "✓" if r["tests_passed"] else ("ESC" if r["escalated"] else "✗")
-        correct = "✓" if r["patch_correct"] else "✗"
-        fp_flag = " ⚠FP" if r["false_positive"] else ""
-        err = f" ERR: {r['error'][:20]}" if r["error"] else ""
-        print(
-            f"{r['id']:<3} {r['name'][:37]:<38} {r['target_file']:<24} "
-            f"{status:<5} {correct + fp_flag:<8} {r['retry_count']:<8} {r['elapsed']:.1f}s{err}"
-        )
-    print("=" * 80)
-    print("\n  AGGREGATE METRICS")
-    print("-" * 40)
-    print(f"  Patch correctness:          {metrics.get('patch_correctness_pct', 0):.1f}%")
-    print(f"  First-attempt success rate: {metrics.get('first_attempt_success_rate', 0):.1f}%")
-    print(f"  Retry success rate:         {metrics.get('retry_success_rate', 0):.1f}%")
-    print(f"  False positive rate:        {metrics.get('false_positive_rate', 0):.1f}%")
-    print(f"  Avg run time:               {metrics.get('avg_run_time_seconds', 0):.1f}s")
-    print(f"  Escalation rate:            {metrics.get('escalation_rate', 0):.1f}%")
-    print("=" * 80 + "\n")
+def _print_metrics(metrics: dict) -> None:
+    print(f"Resolved (service + held-out pytest): {metrics['resolved_count']}/{metrics['total_cases']}")
+    print(f"Invalid / unscored: {metrics['invalid_count']}")
+    rate = metrics["pattern_match_pct"]
+    print("Pattern match: " + (f"{rate:.1f}%" if rate is not None else "unavailable"))
+    matrix = metrics["disagreement_matrix"]
+    print("Tests pass x pattern match")
+    print(f"  Both {matrix['both']} | Tests only {matrix['tests_only']} | "
+          f"Pattern only {matrix['pattern_only']} | Neither {matrix['neither']}")
+    print(f"  Matrix unscored: {metrics['matrix_unscored_count']}")
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+def _score_cases(cases, vector_dir):
+    import chromadb
+
+    client = chromadb.PersistentClient(path=str(vector_dir))
+    collection = client.create_collection("synthetic_static", metadata={"hnsw:space": "cosine"})
+    docs = _load_docs_from_dir(INCIDENTS_DIR)
+    if not docs:
+        raise RuntimeError("The static past_incidents/ knowledge base is empty.")
+    add_documents(docs, collection=collection)
+    retrieve = partial(retrieve_context_with_scores, collection=collection)
+
+    results = []
+    for case in cases:
+        print(f"  [{case['id']}] {case['name']} ...", end=" ", flush=True)
+        result = _run_single(case, retrieve)
+        results.append(result)
+        print(f"{result['status'].upper()} ({result['elapsed']:.2f}s)")
+        if result["error"]:
+            print(f"    {result['error'].splitlines()[0]}")
+        elif result["status"] == "invalid":
+            print(f"    {result['score_detail'].splitlines()[0]}")
+    return results, [doc["id"] for doc in docs]
+
 
 def run_benchmark(max_cases: int = 7, save_history: bool = False, case_ids: list = None) -> dict:
-    os.makedirs(RESULTS_DIR, exist_ok=True)
     cases = TEST_CASES[:max_cases]
     if case_ids:
-        cases = [tc for tc in cases if tc["id"] in case_ids]
+        cases = [case for case in cases if case["id"] in case_ids]
+    print(f"Synthetic regression suite | benchmark mode: AUTO-APPROVE | {len(cases)} case(s)", flush=True)
 
-    print(f"\nRunning benchmark: {len(cases)} test case(s)...")
-    scenario_results = []
-    for i, tc in enumerate(cases, 1):
-        print(f"  [{i}/{len(cases)}] {tc['name']} ...", end=" ", flush=True)
-        result = _run_single(tc)
-        scenario_results.append(result)
-        status = "PASS" if result["tests_passed"] else ("ESCALATED" if result["escalated"] else "FAIL")
-        print(f"{status} ({result['elapsed']:.1f}s)")
-
-    metrics = _compute_metrics(scenario_results)
-    _print_table(scenario_results, metrics)
+    with TemporaryDirectory(prefix="incident-benchmark-chroma-") as vector_dir:
+        scenarios, seed_ids = _score_cases(cases, vector_dir)
+    metrics = _compute_metrics(scenarios)
+    _print_metrics(metrics)
 
     payload = {
+        "schema_version": 2,
+        "suite": "synthetic_regression",
+        "approval_mode": "auto_approve",
+        "rag": {"mode": "throwaway_static", "seed_ids": seed_ids, "auto_ingest": False},
         "run_at": datetime.now(timezone.utc).isoformat(),
         "metrics": metrics,
-        "scenarios": scenario_results,
+        "scenarios": scenarios,
     }
-
-    latest_path = os.path.join(RESULTS_DIR, "latest.json")
-    with open(latest_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-    print(f"Results saved to {latest_path}")
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    latest = RESULTS_DIR / "synthetic-latest.json"
+    latest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"Results saved to {latest}")
 
     if save_history:
-        history_path = os.path.join(RESULTS_DIR, "history.jsonl")
-        with open(history_path, "a", encoding="utf-8") as f:
+        history = RESULTS_DIR / "synthetic-history.jsonl"
+        with history.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload) + "\n")
-        print(f"Appended to {history_path}")
-
+        print(f"Appended to {history}")
     return payload
 
 

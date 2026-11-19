@@ -100,14 +100,14 @@ def build_phase2():
     return workflow.compile()
 
 
-def build_workflow():
+def build_workflow(*, diagnose=root_cause_agent, execute=execution_agent):
     """Full pipeline with no human gate — used by tests and backward-compat callers."""
     workflow = StateGraph(IncidentState)
     workflow.add_node("correlation", correlation_agent)
     workflow.add_node("severity", severity_agent)
-    workflow.add_node("root_cause", root_cause_agent)
+    workflow.add_node("root_cause", diagnose)
     workflow.add_node("fix_generator", fix_generator_agent)
-    workflow.add_node("execution", execution_agent)
+    workflow.add_node("execution", execute)
     workflow.add_node("critic", critic_agent)
     workflow.add_node("customer_response", customer_response_agent)
     workflow.add_node("incident_report", incident_report_agent)

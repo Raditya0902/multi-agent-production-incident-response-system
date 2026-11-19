@@ -33,8 +33,8 @@ def _parse_json(text: str) -> dict:
         raise
 
 
-def root_cause_agent(state: IncidentState) -> dict:
-    scored_incidents = retrieve_context_with_scores(state["correlated_error"], top_k=3)
+def root_cause_agent(state: IncidentState, *, retrieve=retrieve_context_with_scores) -> dict:
+    scored_incidents = retrieve(state["correlated_error"], top_k=3)
 
     rag_similarity_score = 0.0
     context_sections = ""
