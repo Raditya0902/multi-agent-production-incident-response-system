@@ -28,7 +28,6 @@ from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.critic_agent import critic_agent
 from agents.execution_agent import parse_code_patch
 from agents.patch_paths import APP_MOUNTS, PatchPathError, canonical_app_path, with_patch_path
-from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, read_local_source, source_windows
 from agents.state import create_initial_state
 from agents.root_cause_agent import root_cause_agent
@@ -36,7 +35,6 @@ from graph.workflow import build_workflow
 from rag.ingestion import INCIDENTS_DIR, _load_docs_from_dir
 from rag.vectorstore import add_documents, retrieve_context_with_scores
 from tests.benchmark.attempt_trace import AttemptTrace
-from tests.benchmark.feedback import service_counts
 from tests.benchmark.ground_truth import GROUND_TRUTH
 from tests.benchmark.scoring import SOURCE, Score, contract_paths, patch_section, score_patch
 from tests.benchmark.runtime import interruption, label, run_metadata
@@ -189,7 +187,6 @@ def _run_single(tc: dict, retrieve) -> dict:
     read = partial(read_local_source, SOURCE.parent.resolve())
     windows = source_windows(state["raw_logs"], read, mount="/app", prefix="app/")
     state["source_context"] = "\n\n".join(window.render() for window in windows)
-    state["service_contract"] = source_contracts(windows, read)
     started = time.monotonic()
     pipeline_error = None
     smoke_score = None
@@ -223,14 +220,14 @@ def _run_single(tc: dict, retrieve) -> dict:
             outcome = "resolved"
         elif smoke_score.used_real_tests:
             outcome = "wrong_fix"
-            feedback_kind = "service_counts"
+            feedback_kind = "wrong_fix"
         elif path is None or path != f"app/{target}":
             outcome = feedback_kind = "wrong_file"
         else:
             outcome = feedback_kind = "patch_fails_to_apply"
 
         if smoke_score.used_real_tests:
-            feedback = service_counts(smoke_score.detail)
+            feedback = "Service checks passed." if smoke_score.passed else "Service checks failed."
         elif path:
             parsed["file"] = path
             feedback = anchor_feedback(parsed, original, windows, read, smoke_score.detail)

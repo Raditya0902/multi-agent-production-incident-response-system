@@ -16,10 +16,8 @@ from agents.benchmark_usage import benchmark_usage, usage_delta
 from agents.execution_agent import parse_code_patch
 from agents.patch_paths import PatchPathError, WORKSPACE_MOUNTS, canonical_patch_path, with_patch_path
 from agents.localization import file_retry_feedback, ranked_locations
-from agents.service_contract import source_contracts
 from agents.source_context import anchor_feedback, source_windows
 from tests.benchmark.attempt_trace import AttemptTrace
-from tests.benchmark.feedback import behavior_counts
 from tests.benchmark.real.adapter import EvaluationError, checkout, git, incident_input, read_buggy_source, score_candidate, validate
 from tests.benchmark.scoring import patch_section
 from tests.benchmark.real.cache import TrialCache
@@ -90,8 +88,7 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
             passed = scores["fail_to_pass"] and scores["pass_to_pass"]
             category = None if passed else "wrong_fix"
             outcome = category or "resolved"
-            feedback_kind = None if passed else "behavior_counts"
-            feedback = behavior_counts(scores["verdicts"], bug.fail_to_pass, bug.pass_to_pass)
+            feedback_kind = category
         except EvaluationError as error:
             category = error.category
             outcome = category
@@ -130,7 +127,6 @@ def run_trial(repo: Path, bug: Bug, trial: int) -> dict:
         trace = AttemptTrace(windows, read)
         state["candidate_locations"] = list(locations.values())
         state["source_context"] = "\n\n".join(window.render() for window in windows)
-        state["service_contract"] = source_contracts(windows, read)
         with (checkout(repo, bug.buggy_commit) as (workspace, _),
               TemporaryDirectory(prefix="incident-real-rag-") as path):
             client = chromadb.PersistentClient(path=path)

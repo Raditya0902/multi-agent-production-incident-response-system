@@ -5,7 +5,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents import llm
 from agents.localization import ranked_locations
-from agents.service_contract import source_contracts
 from agents.source_context import read_local_source, source_windows
 from agents.state import IncidentState
 
@@ -42,7 +41,6 @@ def fix_generator_agent(state: IncidentState) -> dict:
     )
 
     context = state.get("source_context")
-    contracts = state.get("service_contract", "")
     locations = state.get("candidate_locations", [])
     if context is None:
         read = cache(partial(read_local_source, Path(__file__).resolve().parent.parent))
@@ -51,7 +49,6 @@ def fix_generator_agent(state: IncidentState) -> dict:
         locations = list(ranked.values())
         windows = source_windows(state["raw_logs"], read, ranked_paths=tuple(ranked), **aliases)
         context = "\n\n".join(window.render() for window in windows)
-        contracts = source_contracts(windows, read)
     if context:
         human_content += (
             "\n\nBuggy production source (path and line range shown above each block):\n"
@@ -67,14 +64,6 @@ def fix_generator_agent(state: IncidentState) -> dict:
             + "\n".join(locations) + "\n"
             "Check which location owns the defective behavior. A wrapper can be where the error surfaces."
         )
-    if contracts:
-        human_content += (
-            "\n\nFunction signatures and return or raise statements observed in buggy source:\n"
-            f"{contracts}\n"
-            "Keep the public signature and preserve behavior for inputs that already worked. "
-            "Check that the replacement still returns the same kind of result on those paths."
-        )
-
     if state.get("critic_feedback"):
         human_content += (
             f"\n\nPREVIOUS FIX FAILED — Critic Feedback:\n{state['critic_feedback']}"
