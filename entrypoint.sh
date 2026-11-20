@@ -1,8 +1,10 @@
 #!/bin/bash
 set -e
 
-echo "Ingesting RAG documents into ChromaDB..."
-python -m rag.ingestion
+if [ "${RAG_INGEST_ON_STARTUP:-true}" = "true" ]; then
+    echo "Ingesting RAG documents into ChromaDB..."
+    python -m rag.ingestion
+fi
 
 echo "Starting Streamlit on port 8501..."
 exec streamlit run frontend/app.py \

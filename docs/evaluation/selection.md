@@ -1,0 +1,9 @@
+# Frozen selection and evaluation boundary
+
+Selection used no model calls, so model ID, temperature and output cap are inapplicable to selection. The development manifests were frozen at `a92c0e902820b14e78bd2ab1aa794473faf77703` and the final held-out pool at `1d95bb940bf13acc567767f2341187922ff2bedb`, both dated 2026-11-19. The measured comparisons ran on 2026-11-19 and 2026-11-20 UTC with `deepseek-flash`, thinking disabled, temperature 0.2 and a 4,096-output-token cap. See each suite report for its pipeline commits.
+
+The [selection protocol and exclusion ledger](../../tests/benchmark/real/SELECTION.md) pins the BugsInPy snapshot, upstream revisions, test oracles and evaluator environments. The development set has 15 bugs across four repositories. The held-out set has 12 cases from five other repositories, capped at three per repo. Candidates were screened offline before inference. The final held-out comparison retained every preselected case.
+
+The synthetic benchmark seeds an isolated temporary Chroma store with bundled static incidents. The real-bug benchmark uses an empty temporary store. Neither reuses dashboard feedback. Fixed source, hidden test contents, names, assertions and expected outputs stay outside agent prompts. Agent feedback uses buggy source and incident-like production traces or coarse outcomes. The benchmark auto-approves candidate testing and bypasses the dashboard HITL gate.
+
+Shared harness commit `6bcacdd8df143e63a9564f3e9940e69657ffd4b1` removes whole `test/` and `tests/` directory segments from traced frames and calls before prompts are built. It keeps the frozen scoring path. Offline capture on v0 and full v1 each found 120 development and 56 synthetic prompts byte-identical before and after the filter. A singular-directory test canary was removed. Both held-out arms used the shared boundary. [Trace boundary details](../../tests/benchmark/real/TRACE_BOUNDARY.md)

@@ -39,7 +39,9 @@ Docker is the default. Every attempt copies the project into a new temporary wor
 
 If Docker is unavailable, execution fails with a Docker setup error. The development fallback is selected explicitly with `SANDBOX_MODE=subprocess`. It still uses a fresh copy, a reduced environment, and a 30-second test deadline. It can access host files and the network. Use it only for trusted patches. The dashboard shows a banner while it is active.
 
-A pre-existing `.env` can override the Docker default. Remove the override or set `SANDBOX_MODE=docker` to use Docker. The shipped Compose services omit daemon access. Run the controller on the Docker host for isolated execution. A containerized controller would need an explicitly configured daemon and a workspace path visible at the same absolute path to that daemon.
+A pre-existing `.env` can override the host default. Remove the override or set `SANDBOX_MODE=docker` to use Docker. The Compose services explicitly set `SANDBOX_MODE=subprocess` and omit Docker daemon access. The service container separates the controller from the host. A candidate subprocess still shares the service's filesystem, environment boundary, and network, without a fresh Docker boundary of its own. Run the controller directly on the Docker host for Docker isolation per attempt.
+
+`docker compose up --build --wait` starts the dashboard and webhook. The dashboard health endpoint is `/_stcore/health` and the API exposes `/health`. The dashboard normally seeds the RAG store at startup. For a health-only check without loading the embedding model, set `RAG_INGEST_ON_STARTUP=false` in the Compose environment and use an env file without provider credentials.
 
 ## Resume a pending review
 

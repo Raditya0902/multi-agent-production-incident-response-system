@@ -9,6 +9,8 @@ services:
     environment:
       - INCIDENT_DB_PATH=/app/data_storage/incidents.db
       - HITL_DB_PATH=/app/data_storage/hitl.db
+      # Compose services have no Docker daemon access for per-run containers.
+      - SANDBOX_MODE=subprocess
     env_file:
       - .env
     restart: unless-stopped
@@ -21,7 +23,7 @@ services:
 
   api:
     build: .
-    command: uvicorn api.webhook:app --host 0.0.0.0 --port 8000
+    entrypoint: ["uvicorn", "api.webhook:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
     volumes:
@@ -29,11 +31,20 @@ services:
       - app_data:/app/data_storage
     environment:
       - INCIDENT_DB_PATH=/app/data_storage/incidents.db
+      # Compose services have no Docker daemon access for per-run containers.
+      - SANDBOX_MODE=subprocess
     env_file:
       - .env
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
   chroma_data:
