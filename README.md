@@ -2,7 +2,7 @@
 
 A fully autonomous AI pipeline that handles production software incidents end-to-end. Paste error logs and customer complaints into the dashboard, click **Run**, and within ~90 seconds the system has diagnosed the root cause, written and tested a code fix, drafted personalized customer replies, sent a Slack notification, and opened a GitHub PR — with a human approval gate before any code is touched.
 
-Built with **LangGraph**, **Groq (Llama 3)**, **ChromaDB RAG**, **Streamlit**, **Slack**, and **GitHub API**.
+Built with **LangGraph**, **DeepSeek or Groq**, **ChromaDB RAG**, **Streamlit**, **Slack**, and **GitHub API**.
 
 ---
 
@@ -116,7 +116,7 @@ Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) a
 - **Human-in-the-loop patch approval** — review and optionally reject with feedback before execution
 - **Self-healing retry loop** — Critic Agent analyzes test failures and guides regeneration (up to 3 attempts)
 - **Real test file discovery** — Execution Agent uses your actual pytest files when available
-- **Isolated test execution** — patches run in a subprocess sandbox (Docker optional)
+- **Isolated test execution** — patches run in a disposable copy inside Docker by default
 - **Personalized customer replies** — all customers batched into one LLM call
 - **Slack notifications** — rich Block Kit messages with severity color, root cause, customers, and PR link
 - **GitHub PR creation** — branch, commit, and PR opened automatically on test pass
@@ -125,9 +125,9 @@ Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) a
 - **Benchmark suite** — run all 7 test cases and track patch correctness, false positive rate, and run time
 - **Webhook API** (FastAPI) — external tools can POST incidents directly on port 8000
 - **Dry run mode** — `?dry_run=true` runs the full pipeline without saving, notifying, or opening a PR
-- **Fallback LLM** — automatically switches to Gemini/OpenAI/Anthropic when Groq daily quota is exhausted
+- **Fallback LLM** — automatically switches to Gemini/OpenAI/Anthropic when the primary provider's daily quota is exhausted
 - **Streaming output** — root cause and fix explanation stream character-by-character as agents complete
-- **Rate limit handling** — exponential backoff (2s → 4s → 8s → 16s) for per-minute Groq limits
+- **Rate limit handling** — exponential backoff (2s → 4s → 8s → 16s) for provider rate limits
 - **Docker support** — `docker compose up --build` starts everything with persistent volumes
 
 ---
@@ -137,7 +137,7 @@ Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) a
 | Layer               | Technology                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------- |
 | Agent orchestration | [LangGraph](https://github.com/langchain-ai/langgraph)                                        |
-| LLM                 | [Groq API](https://console.groq.com/) — `llama-3.3-70b-versatile` (or `llama-3.1-8b-instant`) |
+| LLM                 | DeepSeek or Groq, selected in `.env` |
 | RAG vector store    | [ChromaDB](https://www.trychroma.com/) + `sentence-transformers/all-MiniLM-L6-v2`             |
 | Frontend            | [Streamlit](https://streamlit.io/)                                                            |
 | Webhook API         | [FastAPI](https://fastapi.tiangolo.com/) + [Uvicorn](https://www.uvicorn.org/)                |
@@ -232,7 +232,8 @@ Rejection at the gate calls `fix_generator_agent()` directly (no graph re-run) a
 ### Prerequisites
 
 - Python 3.11+
-- [Groq API key](https://console.groq.com/) (free tier available)
+- An API key for [DeepSeek](https://platform.deepseek.com/) or [Groq](https://console.groq.com/)
+- Docker Engine or Docker Desktop for patch execution
 
 ### 1. Clone and install
 
@@ -246,8 +247,8 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Open .env and set GROQ_API_KEY (required)
-# All other variables are optional — see Environment Variables below
+# Open .env and set the chosen provider's API key.
+docker build -t incident-execution-sandbox:local sandbox
 ```
 
 ### 3. Ingest past incidents into ChromaDB
@@ -283,7 +284,7 @@ docker compose down         # stop
 docker compose down -v      # stop and remove volumes (clears incident history and RAG)
 ```
 
-The entrypoint automatically runs `rag.ingestion` before starting Streamlit, so the RAG knowledge base is always populated.
+The entrypoint ingests the RAG knowledge base before starting Streamlit. For Docker patch execution, run the dashboard and API on the Docker host using the local quick start. The supplied Compose services have no Docker daemon socket. They can use explicit `SANDBOX_MODE=subprocess` for trusted local patch previews. See [execution and approval settings](docs/execution-and-approval.md).
 
 ---
 
@@ -293,12 +294,17 @@ Copy `.env.example` to `.env` and fill in the values you need.
 
 | Variable                   | Required | Default                   | Description                                                                           |
 | -------------------------- | -------- | ------------------------- | ------------------------------------------------------------------------------------- |
-| `GROQ_API_KEY`             | ✅ Yes   | —                         | Groq API key from [console.groq.com](https://console.groq.com/)                       |
-| `LLM_MODEL`                | No       | `llama-3.3-70b-versatile` | Groq model. Use `llama-3.1-8b-instant` for higher rate limits                         |
+| `LLM_PROVIDER`             | Yes      | —                         | Primary provider, `deepseek` or `groq` |
+| `DEEPSEEK_API_KEY`          | DeepSeek | —                         | DeepSeek API key |
+| `DEEPSEEK_MODEL`            | DeepSeek | —                         | DeepSeek model ID, such as `deepseek-flash` |
+| `GROQ_API_KEY`              | Groq     | —                         | Groq API key |
+| `LLM_MODEL`                 | Groq     | —                         | Groq model ID, such as `openai/gpt-oss-20b` |
 | `GROQ_TEMPERATURE`         | No       | `0.2`                     | LLM temperature (0–1)                                                                 |
 | `GROQ_MAX_TOKENS`          | No       | `4096`                    | Max tokens per LLM call                                                               |
 | `MAX_RETRY_ATTEMPTS`       | No       | `3`                       | Max fix retries before escalation. Set to `1` for fast demos                          |
-| `SANDBOX_MODE`             | No       | `subprocess`              | `subprocess` or `docker` for test execution                                           |
+| `SANDBOX_MODE`              | No       | `docker`                  | Use `subprocess` only for trusted patches |
+| `SANDBOX_IMAGE`             | No       | `incident-execution-sandbox:local` | Local image for patch tests |
+| `HITL_DB_PATH`              | No       | `./hitl.db`               | SQLite checkpoint for pending dashboard approvals |
 | `INCIDENT_DB_PATH`         | No       | `./incidents.db`          | SQLite database path                                                                  |
 | `CHROMA_PERSIST_DIR`       | No       | `./rag/chroma_db`         | ChromaDB persistence directory                                                        |
 | `SLACK_BOT_TOKEN`          | No       | —                         | Slack bot token (`xoxb-...`). Needs `chat:write` scope                                |
@@ -309,7 +315,7 @@ Copy `.env.example` to `.env` and fill in the values you need.
 | `GITHUB_REPO`              | No       | —                         | Target repo in `owner/name` format                                                    |
 | `GITHUB_BASE_BRANCH`       | No       | `main`                    | Branch the PR targets                                                                 |
 | `WEBHOOK_API_KEY`          | No       | —                         | API key for the webhook endpoint. Empty = no auth (dev mode)                          |
-| `FALLBACK_LLM_PROVIDER`    | No       | —                         | `gemini`, `openai`, or `anthropic` — activated automatically on Groq quota exhaustion |
+| `FALLBACK_LLM_PROVIDER`    | No       | —                         | `gemini`, `openai`, or `anthropic` — activated on primary provider quota exhaustion |
 | `GOOGLE_API_KEY`           | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=gemini`                                          |
 | `OPENAI_API_KEY`           | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=openai`                                          |
 | `ANTHROPIC_API_KEY`        | No       | —                         | Required when `FALLBACK_LLM_PROVIDER=anthropic`                                       |
@@ -322,7 +328,7 @@ Copy `.env.example` to `.env` and fill in the values you need.
 # Unit tests (no API key needed — ~8 seconds)
 pytest tests/ -m "not integration" -v
 
-# Integration test (requires GROQ_API_KEY, runs full pipeline)
+# Integration test (requires provider credentials and runs the full pipeline)
 pytest tests/ -m integration -v
 ```
 
@@ -347,7 +353,9 @@ python -m tests.benchmark.run_benchmark --max 3      # run only first 3 (faster)
 
 Results are saved to `tests/benchmark/results/latest.json`. The **Analytics** page in the dashboard also has a Benchmark tab with a "Run Benchmark" button.
 
-### Results (Groq `llama-3.3-70b-versatile`, 7 test cases)
+### Archived results (retired model and legacy scoring)
+
+These historical numbers predate the current scoring and pipeline.
 
 | Metric                     | Result                                                                 |
 | -------------------------- | ---------------------------------------------------------------------- |
@@ -383,29 +391,7 @@ Per-scenario breakdown:
 
 ### Reproduce the Benchmark
 
-These results are reproducible. To run the full benchmark yourself:
-
-```bash
-# Requires GROQ_API_KEY set in .env
-python -m tests.benchmark.run_benchmark
-python -m tests.benchmark.run_benchmark --save-history
-cat tests/benchmark/results/latest.json
-```
-
-Or with Docker:
-
-```bash
-docker compose run --rm app python -m tests.benchmark.run_benchmark
-```
-
-Expected results on `llama-3.3-70b-versatile`:
-
-- **100.0%** patch correctness
-- **0.0%** false positives
-- **0.0%** escalation rate
-- ~**41s** average runtime per scenario
-
-> These are reported results from a controlled benchmark, not universal correctness guarantees. See [`docs/limitations.md`](docs/limitations.md).
+See the [benchmark instructions](tests/benchmark/README.md) for the current synthetic runner. The archived run used a retired provider model and its historical scoring.
 
 ---
 
@@ -524,7 +510,7 @@ The HITL approval screen calculates a confidence score (0.0–1.0) from three si
 
 ### Fallback LLM
 
-When the Groq daily quota is exhausted the system automatically switches to the configured fallback provider (Gemini, OpenAI, or Anthropic) mid-session — no restart needed. A warning banner appears in the sidebar. Configure via `FALLBACK_LLM_PROVIDER` and the matching API key in `.env`.
+When the primary provider reaches its daily quota the system automatically switches to the configured fallback provider (Gemini, OpenAI, or Anthropic) mid-session — no restart needed. A warning banner appears in the sidebar. Configure via `FALLBACK_LLM_PROVIDER` and the matching API key and model ID in `.env`.
 
 ---
 

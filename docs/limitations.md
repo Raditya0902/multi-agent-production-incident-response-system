@@ -40,11 +40,11 @@ In an arbitrary real-world codebase, the Execution Agent would frequently fall b
 
 ## 4. LLM Variability
 
-All benchmark results were produced using Groq `llama-3.3-70b-versatile` at temperature 0.2. Results may vary if:
+Results may vary if:
 - A different model or provider is used.
-- The Groq rate limit is hit and the system falls back to `llama-3.1-8b-instant` or a third-party provider (Gemini, OpenAI, Anthropic).
+- Quota exhaustion triggers a configured fallback provider.
 - The same model is queried at a different temperature or token limit.
-- Groq's underlying model weights are updated.
+- The provider updates the underlying model weights.
 
 The fallback LLM mechanism reduces availability risk but the fallback models are generally less capable, which can increase retry count or produce lower-quality patches.
 
@@ -63,14 +63,14 @@ The gate is most useful as a friction point that ensures a human sees the propos
 
 ## 6. Production Deployment Requirements
 
-This prototype runs in a local development environment with permissive defaults. A production deployment would additionally require:
+This prototype targets a local development environment. A production deployment would additionally require:
 
-- **Stronger sandboxing** — the current subprocess sandbox shares the host filesystem. Docker sandboxing (`SANDBOX_MODE=docker`) is available but not the default.
+- **Sandbox operation** — Docker is the default and requires a local daemon and prebuilt image. The explicit subprocess fallback shares the host filesystem and network. See [execution and approval settings](execution-and-approval.md).
 - **Access controls** — the webhook API has optional token auth (`WEBHOOK_API_KEY`), but there is no role-based access control, audit logging, or rate limiting beyond the LLM layer.
 - **Secret management** — all credentials are loaded from `.env` files; production would require a secrets manager (Vault, AWS Secrets Manager, etc.).
 - **Policy guardrails** — no policy enforcement on which files the Fix Generator is allowed to modify.
 - **Observability** — no distributed tracing, structured logging, or alerting on pipeline failures.
-- **State persistence across restarts** — LangGraph state is held in memory; a server restart loses in-progress runs.
+- **Recovery during an active phase** — pending dashboard approvals survive restarts. A restart during diagnosis or after approval still interrupts that phase. Restrict access to the dashboard and its checkpoint database, which contains incident data.
 
 ---
 

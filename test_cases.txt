@@ -214,5 +214,5 @@ The fix only checks if the list is empty but doesn't handle the case where quant
   • Test Case 6: edge case (ZeroDivisionError) — tests RAG retrieval for novel errors
   • Test Case 7: specifically for testing the Reject → Regenerate flow
   • Set MAX_RETRY_ATTEMPTS=1 in .env to force escalation quickly for demos
-  • Switch LLM_MODEL=llama-3.1-8b-instant if you hit daily token limits
+  • If you hit daily token limits, check your provider quota or select an available model
 ================================================================================

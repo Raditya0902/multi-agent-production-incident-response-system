@@ -8,6 +8,7 @@ services:
       - app_data:/app/data_storage
     environment:
       - INCIDENT_DB_PATH=/app/data_storage/incidents.db
+      - HITL_DB_PATH=/app/data_storage/hitl.db
     env_file:
       - .env
     restart: unless-stopped

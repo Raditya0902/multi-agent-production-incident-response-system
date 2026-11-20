@@ -111,6 +111,8 @@ def test_run_resumes_missing_trials_after_rate_limit(monkeypatch, bug, tmp_path)
             raise run_benchmark.BenchmarkInterrupted("rate limit")
         return completion
 
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.setenv("LLM_MODEL", "example-model")
     monkeypatch.setenv("GROQ_API_KEY", "unit-test-placeholder")
     monkeypatch.setattr(run_benchmark, "RESULTS", tmp_path / "results")
     monkeypatch.setattr(run_benchmark, "git", lambda *args: b"a" * 40)

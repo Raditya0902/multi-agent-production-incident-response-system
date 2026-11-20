@@ -38,7 +38,7 @@ python -m tests.benchmark.run_benchmark --save-history
 python scripts/export_benchmark_report.py
 ```
 
-The benchmark needs a valid Groq key, Docker access, and the configured
+The benchmark needs a configured primary provider and model, a valid API key, Docker access, and the configured
 sentence embedding model. The runner auto-approves generated fixes. Each
 invocation creates a throwaway Chroma store from the bundled Markdown files
 at the top level of `rag/past_incidents/`. The benchmark skips dashboard

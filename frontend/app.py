@@ -14,11 +14,14 @@ from agents.fix_generator_agent import fix_generator_agent
 from agents.execution_agent import parse_code_patch
 from agents.state import create_initial_state
 from agents import is_using_fallback
+from db.approval import ApprovalStore
+from sandbox.runner import SUBPROCESS_WARNING, sandbox_mode
 from db.history import save_incident, init_db, export_as_postmortem_doc
 from notifications.slack import notify as slack_notify, is_configured as slack_configured
 from notifications.github_pr import create_pr, is_configured as github_configured
 
 init_db()
+approval_store = ApprovalStore()
 
 
 def _char_stream(text: str, delay: float = 0.006):
@@ -42,10 +45,8 @@ def _severity_badge(severity: str, reason: str = "") -> None:
 
 def _show_rate_limit_error(e=None):
     st.error(
-        "**Groq daily token limit reached.**\n\n"
-        "In your `.env` file, change:\n"
-        "```\nLLM_MODEL=llama-3.1-8b-instant\n```\n"
-        "then reload the page. Or wait until tomorrow for the quota to reset."
+        "The configured LLM reached its quota. Check the provider's quota or update "
+        "`LLM_PROVIDER` and the corresponding model setting in `.env`."
     )
 
 
@@ -148,11 +149,17 @@ st.set_page_config(
 )
 
 st.title("🚨 Production Incident Response System")
+try:
+    if sandbox_mode() == "subprocess":
+        st.warning(SUBPROCESS_WARNING)
+except ValueError as error:
+    st.error(str(error))
+    st.stop()
 st.caption("Multi-agent AI pipeline: correlate → diagnose → fix → **human approval** → validate → notify → report")
 
 # Fallback LLM warning (Upgrade 5)
 if is_using_fallback():
-    st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
+    st.sidebar.warning("⚠️ Using fallback LLM — primary provider quota exhausted")
 
 # ---------------------------------------------------------------------------
 # Session state helpers
@@ -164,7 +171,8 @@ if is_using_fallback():
 
 def reset_run():
     for key in ("hitl_phase", "hitl_state", "hitl_agent_log", "hitl_run_start",
-                "last_result", "run_time", "_loaded_logs", "_loaded_complaints"):
+                "last_result", "run_time", "_loaded_logs", "_loaded_complaints",
+                "hitl_run_id", "hitl_revision", "_resume_run_id"):
         st.session_state.pop(key, None)
 
 
@@ -193,6 +201,23 @@ def load_sample_data(scenario: str):
 # ---------------------------------------------------------------------------
 
 if phase == "input":
+    with st.expander("Resume a pending approval"):
+        run_id = st.text_input("Run ID", key="_resume_run_id")
+        if st.button("Resume approval", disabled=not run_id.strip()):
+            checkpoint = approval_store.load(run_id.strip())
+            if checkpoint is None:
+                st.error("No pending approval found for this run ID.")
+            else:
+                st.session_state.update({
+                    "hitl_run_id": checkpoint.run_id,
+                    "hitl_revision": checkpoint.revision,
+                    "hitl_state": checkpoint.state,
+                    "hitl_agent_log": checkpoint.agent_log,
+                    "hitl_run_start": checkpoint.started_at,
+                    "hitl_phase": "awaiting_approval",
+                })
+                st.rerun()
+
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Error Logs / Stack Trace")
@@ -284,11 +309,11 @@ elif phase == "running_phase1":
 
         st.session_state["hitl_state"] = state
         st.session_state["hitl_agent_log"] = agent_log
+        st.session_state["hitl_run_id"] = approval_store.save(state, agent_log, start)
+        st.session_state["hitl_revision"] = 0
         st.session_state["hitl_phase"] = "awaiting_approval"
         st.rerun()
 
-    except RuntimeError as e:
-        _show_rate_limit_error(e)
     except Exception as e:
         _show_pipeline_error(e)
 
@@ -303,7 +328,7 @@ elif phase == "awaiting_approval":
 
     # Fallback warning
     if is_using_fallback():
-        st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
+        st.sidebar.warning("⚠️ Using fallback LLM — primary provider quota exhausted")
 
     # Show completed phase1 agents statically
     st.subheader("Agent Activity")
@@ -330,6 +355,10 @@ elif phase == "awaiting_approval":
     _severity_badge(severity, severity_reason)
 
     st.subheader("🔍 Human Approval Required")
+    run_id = st.session_state["hitl_run_id"]
+    revision = st.session_state["hitl_revision"]
+    st.caption("Save this run ID to resume approval after a restart. Keep it private.")
+    st.code(run_id)
     if rejection_count > 0:
         st.warning(f"This is revised patch #{rejection_count + 1}. Attempts remaining: {attempts_left}")
 
@@ -377,6 +406,9 @@ elif phase == "awaiting_approval":
 
     with col_approve:
         if st.button("Approve & Run Tests", type="primary", use_container_width=True):
+            if not approval_store.consume(run_id, revision):
+                st.error("This review has changed or already closed. Resume the run to reload it.")
+                st.stop()
             st.session_state["hitl_phase"] = "running_phase2"
             st.rerun()
 
@@ -388,15 +420,26 @@ elif phase == "awaiting_approval":
             if not feedback.strip():
                 st.error("Please provide a rejection reason so the AI can improve the patch.")
                 st.stop()
-            state["critic_feedback"] = f"[Human reviewer rejected this patch]: {feedback.strip()}"
-            state["retry_count"] = rejection_count + 1
-            updated = fix_generator_agent(state)
-            state.update(updated)
-            st.session_state["hitl_state"] = state
+            revised_state = dict(state)
+            revised_state["critic_feedback"] = f"[Human reviewer rejected this patch]: {feedback.strip()}"
+            revised_state["retry_count"] = rejection_count + 1
+            try:
+                revised_state.update(fix_generator_agent(revised_state))
+            except Exception as error:
+                _show_pipeline_error(error)
+                st.stop()
+            if not approval_store.revise(run_id, revision, revised_state):
+                st.error("This review has changed or already closed. Resume the run to reload it.")
+                st.stop()
+            st.session_state["hitl_revision"] = revision + 1
+            st.session_state["hitl_state"] = revised_state
             st.rerun()
 
     with col_cancel:
         if st.button("Cancel", use_container_width=True):
+            if not approval_store.consume(run_id, revision):
+                st.error("This review has changed or already closed. Resume the run to reload it.")
+                st.stop()
             reset_run()
             st.rerun()
 
@@ -483,8 +526,6 @@ elif phase == "running_phase2":
         st.session_state["hitl_phase"] = "complete"
         st.rerun()
 
-    except RuntimeError as e:
-        _show_rate_limit_error(e)
     except Exception as e:
         _show_pipeline_error(e)
 
@@ -499,7 +540,7 @@ elif phase == "complete":
 
     # Fallback warning
     if is_using_fallback():
-        st.sidebar.warning("⚠️ Using fallback LLM — Groq quota exhausted")
+        st.sidebar.warning("⚠️ Using fallback LLM — primary provider quota exhausted")
 
     # Upgrade 3c toast
     if st.session_state.pop("_rag_ingested", None):

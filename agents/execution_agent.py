@@ -1,16 +1,14 @@
 import fnmatch
 import os
 import re
-import sys
-import shutil
-import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from agents.patch_paths import PatchPathError, canonical_app_path
 from agents.source_context import production_path
 from agents.state import IncidentState
+from sandbox.runner import copy_workspace, run_in_docker, run_in_subprocess, sandbox_mode
 
 
 # ---------------------------------------------------------------------------
@@ -69,16 +67,19 @@ def find_real_test_file(module_filename: str) -> Optional[str]:
 # Test harness generation
 # ---------------------------------------------------------------------------
 
-def write_test_harness(patch: dict) -> str:
+def write_test_harness(patch: dict, directory: Path | None = None) -> str:
     """
     Write a synthetic test harness to a temp directory.
     Returns the temp dir path — caller must clean it up.
     """
-    test_dir = tempfile.mkdtemp(prefix="incident_sandbox_")
+    if directory is None:
+        test_dir = tempfile.mkdtemp(prefix="incident_sandbox_")
+    else:
+        directory.mkdir()
+        test_dir = str(directory)
 
     fixed_code = patch.get("fixed", "pass")
     original_code = patch.get("original", "")
-    filename = patch.get("file", "module_under_test.py")
 
     # Determine error type from the original code to generate appropriate tests
     is_index_error = "index" in original_code.lower() or "items[" in original_code
@@ -240,59 +241,13 @@ def test_empty_input():
 
 
 # ---------------------------------------------------------------------------
-# Execution runners
-# ---------------------------------------------------------------------------
-
-def should_use_docker() -> bool:
-    if os.getenv("SANDBOX_MODE", "subprocess") == "subprocess":
-        return False
-    try:
-        import docker
-        docker.from_env().ping()
-        return True
-    except Exception:
-        return False
-
-
-def run_in_subprocess(test_dir: str, timeout: int = 30, test_file: str = "test_fix.py") -> Tuple[str, bool]:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", test_file, "-v", "--tb=short"],
-        cwd=test_dir,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-    output = result.stdout + result.stderr
-    return output, result.returncode == 0
-
-
-def run_in_docker(test_dir: str, test_file: str = "test_fix.py") -> Tuple[str, bool]:
-    try:
-        import docker
-        client = docker.from_env()
-        logs = client.containers.run(
-            image="python:3.11-slim",
-            command=f'bash -c "pip install pytest -q && python -m pytest /app/{test_file} -v --tb=short"',
-            volumes={test_dir: {"bind": "/app", "mode": "ro"}},
-            remove=True,
-            mem_limit="256m",
-            network_mode="none",
-        )
-        output = logs.decode("utf-8") if isinstance(logs, bytes) else str(logs)
-        passed = "passed" in output and "failed" not in output
-        return output, passed
-    except Exception as e:
-        return run_in_subprocess(test_dir, test_file=test_file)
-
-
-# ---------------------------------------------------------------------------
 # Agent node
 # ---------------------------------------------------------------------------
 
 def execution_agent(state: IncidentState) -> dict:
     patch = parse_code_patch(state["code_patch"])
     requested_path = patch["file"]
-    root = Path(_PROJECT_ROOT)
+    root = Path(_PROJECT_ROOT).resolve()
     try:
         canonical = canonical_app_path(root, requested_path)
     except PatchPathError as error:
@@ -311,50 +266,32 @@ def execution_agent(state: IncidentState) -> dict:
             }
         canonical = None
     module_filename = Path(canonical or requested_path).name
-    used_real_tests = False
-    test_dir = None
-
     real_test_path = find_real_test_file(module_filename) if module_filename else None
-    source_path = root / canonical if canonical else None
-
-    if real_test_path:
-        test_dir = tempfile.mkdtemp(prefix="incident_sandbox_")
-        # Copy patched source into sandbox under its original name
-        dest_source_name = module_filename or "module_under_test.py"
-        dest_source = os.path.join(test_dir, dest_source_name)
-        if source_path:
-            # Apply the patch to the real source file
-            with open(source_path, "r", encoding="utf-8") as f:
-                original_content = f.read()
-            original_snippet = patch.get("original", "").strip()
-            fixed_snippet = patch.get("fixed", "").strip()
-            if original_snippet and original_snippet in original_content:
-                patched_content = original_content.replace(original_snippet, fixed_snippet, 1)
-            else:
-                patched_content = original_content + f"\n# --- Suggested fix ---\n{fixed_snippet}\n"
-            with open(dest_source, "w", encoding="utf-8") as f:
-                f.write(patched_content)
-        else:
-            # No source found — write just the fixed snippet
-            with open(dest_source, "w", encoding="utf-8") as f:
-                f.write(patch.get("fixed", "pass"))
-
-        # Copy real test file into sandbox
-        dest_test = os.path.join(test_dir, os.path.basename(real_test_path))
-        shutil.copy2(real_test_path, dest_test)
-        used_real_tests = True
-
-    if not real_test_path:
-        test_dir = write_test_harness(patch)
+    used_real_tests = real_test_path is not None
+    run_tests = run_in_docker if sandbox_mode() == "docker" else run_in_subprocess
 
     try:
-        test_file = os.path.basename(real_test_path) if real_test_path else "test_fix.py"
-        if should_use_docker():
-            test_results, tests_passed = run_in_docker(test_dir, test_file=test_file)
-        else:
-            test_results, tests_passed = run_in_subprocess(test_dir, test_file=test_file)
-    finally:
-        shutil.rmtree(test_dir, ignore_errors=True)
+        with tempfile.TemporaryDirectory(prefix="incident_sandbox_") as temporary:
+            workspace = Path(temporary) / "repo"
+            copy_workspace(root, workspace)
+            if real_test_path:
+                test_file = Path(real_test_path).relative_to(root).as_posix()
+                source = workspace / canonical
+                original_content = source.read_text(encoding="utf-8")
+                original_snippet = patch["original"]
+                fixed_snippet = patch["fixed"]
+                if original_snippet and original_snippet in original_content:
+                    patched_content = original_content.replace(original_snippet, fixed_snippet, 1)
+                else:
+                    patched_content = original_content + f"\n# --- Suggested fix ---\n{fixed_snippet}\n"
+                source.write_text(patched_content, encoding="utf-8")
+            else:
+                harness = workspace / ".incident-preview"
+                write_test_harness(patch, harness)
+                test_file = ".incident-preview/test_fix.py"
+            test_results, tests_passed = run_tests(str(workspace), test_file=test_file)
+    except (OSError, ValueError) as error:
+        test_results, tests_passed = f"Sandbox test could not start: {error}", False
 
     if not used_real_tests:
         test_results += (

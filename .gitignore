@@ -28,3 +28,8 @@ dev/
 
 # Claude Code internal guidance
 CLAUDE.md
+
+data_storage/
+*.db-journal
+*.db-shm
+*.db-wal

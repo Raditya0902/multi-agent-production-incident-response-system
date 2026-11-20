@@ -82,6 +82,8 @@ def test_synthetic_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_pat
 
 
 def test_real_oracle_stays_out_of_all_prompts(monkeypatch, prompts, tmp_path):
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.setenv("LLM_MODEL", "example-model")
     failing = "tests/test_heldout_canary.py::test_fail"
     passing = "tests/test_heldout_canary.py::test_pass"
     bug = Bug(

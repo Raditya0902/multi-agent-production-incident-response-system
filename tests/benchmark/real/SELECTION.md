@@ -69,7 +69,7 @@ coarse retry feedback. Model inputs exclude fixed source, test files,
 test IDs, expected outputs, and raw assertions. Each model trial uses an
 empty throwaway Chroma directory with no feedback writes.
 
-The separate `run` mode uses auto-approval with a valid Groq key.
+The separate `run` mode uses auto-approval with a configured primary provider, model, and API key.
 `--trials` defaults to three. `--bugs` and `--max` select from the frozen
 list. Complete attempts are cached per bug and trial under
 `tests/benchmark/results/real/`, keyed by the effective benchmark

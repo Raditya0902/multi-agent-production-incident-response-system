@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 from dotenv import load_dotenv
@@ -16,24 +17,60 @@ _MAX_RETRIES = 4
 _BASE_WAIT = 2  # seconds
 
 
+class LLMConfigurationError(ValueError):
+    """Actionable error for an invalid provider or model setting."""
+
+
+def _required_model(variable: str) -> str:
+    model = os.getenv(variable, "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/-]*", model):
+        raise LLMConfigurationError(f"Set {variable} to an available model ID.")
+    return model
+
+
 def primary_llm_settings() -> dict:
-    provider = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
     if provider == "deepseek":
         return {
             "provider": provider,
-            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-flash"),
+            "model": _required_model("DEEPSEEK_MODEL"),
             "temperature": float(os.getenv("DEEPSEEK_TEMPERATURE", "0.2")),
             "max_tokens": int(os.getenv("DEEPSEEK_MAX_TOKENS", "4096")),
             "thinking": "disabled",
         }
     if provider != "groq":
-        raise ValueError(f"Unknown primary LLM provider: {provider}")
+        raise LLMConfigurationError("Set LLM_PROVIDER to deepseek or groq.")
     return {
         "provider": provider,
-        "model": os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
+        "model": _required_model("LLM_MODEL"),
         "temperature": float(os.getenv("GROQ_TEMPERATURE", "0.2")),
         "max_tokens": int(os.getenv("GROQ_MAX_TOKENS", "4096")),
     }
+
+
+def _model_rejected(error: Exception) -> bool:
+    if getattr(error, "status_code", None) == 404:
+        return True
+    body = getattr(error, "body", None)
+    if not isinstance(body, dict):
+        return False
+    details = body.get("error", body)
+    if not isinstance(details, dict):
+        return False
+    return details.get("code") in {"model_not_found", "model_decommissioned", "invalid_model"} or (
+        "model not exist" in str(details.get("message", "")).lower()
+    )
+
+
+def _invoke_configured(client, variable: str, *args, **kwargs):
+    try:
+        return client.invoke(*args, **kwargs)
+    except Exception as error:
+        if _model_rejected(error):
+            raise LLMConfigurationError(
+                f"The provider rejected the configured model. Set {variable} to an available model ID."
+            ) from None
+        raise
 
 
 def _get_llm():
@@ -84,7 +121,7 @@ def _get_fallback_llm():
         try:
             from langchain_openai import ChatOpenAI
             _fallback_llm = ChatOpenAI(
-                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                model=_required_model("OPENAI_MODEL"),
                 temperature=float(os.getenv("GROQ_TEMPERATURE", "0.2")),
                 api_key=api_key,
             )
@@ -100,7 +137,7 @@ def _get_fallback_llm():
         try:
             from langchain_anthropic import ChatAnthropic
             _fallback_llm = ChatAnthropic(
-                model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+                model=_required_model("ANTHROPIC_MODEL"),
                 temperature=float(os.getenv("GROQ_TEMPERATURE", "0.2")),
                 api_key=api_key,
             )
@@ -116,7 +153,7 @@ def _get_fallback_llm():
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
             _fallback_llm = ChatGoogleGenerativeAI(
-                model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+                model=_required_model("GEMINI_MODEL"),
                 temperature=float(os.getenv("GROQ_TEMPERATURE", "0.2")),
                 google_api_key=api_key,
             )
@@ -150,7 +187,8 @@ def _invoke_fallback_with_retry(*args, **kwargs):
         return None
     for attempt in range(_MAX_RETRIES):
         try:
-            return fallback.invoke(*args, **kwargs)
+            provider = os.getenv("FALLBACK_LLM_PROVIDER", "").strip().upper()
+            return _invoke_configured(fallback, f"{provider}_MODEL", *args, **kwargs)
         except Exception as e:
             err_str = str(e).lower()
             if _is_rate_limit_error(err_str) and attempt < _MAX_RETRIES - 1:
@@ -173,24 +211,26 @@ def _invoke_with_retry(*args, **kwargs):
 
     for attempt in range(_MAX_RETRIES):
         try:
-            return _get_llm().invoke(*args, **kwargs)
+            client = _get_llm()
+            variable = "DEEPSEEK_MODEL" if os.getenv("LLM_PROVIDER", "").strip().lower() == "deepseek" else "LLM_MODEL"
+            return _invoke_configured(client, variable, *args, **kwargs)
         except Exception as e:
             err_str = str(e).lower()
 
             if _is_daily_quota_error(err_str):
                 fallback = _get_fallback_llm()
                 if fallback:
-                    logger.warning("[LLM] Groq daily quota exhausted — switching to fallback provider")
+                    logger.warning("[LLM] Primary provider daily quota exhausted — switching to fallback provider")
                     _using_fallback = True
                     return _invoke_fallback_with_retry(*args, **kwargs)
                 raise RuntimeError(
-                    "Groq daily token limit reached. Wait until tomorrow or switch to a "
-                    "model with higher limits (e.g. llama-3.1-8b-instant) in your .env file."
+                    "The primary provider reached its daily token limit. Wait for the quota reset or "
+                    "choose an available model with higher limits in your .env file."
                 ) from e
 
             if _is_rate_limit_error(err_str) and attempt < _MAX_RETRIES - 1:
                 wait = _BASE_WAIT ** (attempt + 1)  # 2s, 4s, 8s, 16s
-                logger.warning(f"Rate limited by Groq. Retrying in {wait}s (attempt {attempt + 1}/{_MAX_RETRIES})...")
+                logger.warning(f"Rate limited by primary provider. Retrying in {wait}s (attempt {attempt + 1}/{_MAX_RETRIES})...")
                 time.sleep(wait)
                 continue
 

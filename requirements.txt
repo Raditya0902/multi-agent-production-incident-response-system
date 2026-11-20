@@ -2,6 +2,7 @@ langgraph>=0.2.0
 langchain>=0.3.0
 langchain-groq>=0.2.0
 langchain-core>=0.3.0
+langchain-openai>=1.0.0
 chromadb>=0.5.0
 sentence-transformers>=3.0.0
 streamlit>=1.38.0
@@ -18,5 +19,4 @@ pandas>=2.0.0
 
 # Optional LLM providers (install whichever you configure)
 # langchain-google-genai>=2.0.0   # for FALLBACK_LLM_PROVIDER=gemini
-# langchain-openai>=1.0.0         # for LLM_PROVIDER=deepseek or FALLBACK_LLM_PROVIDER=openai
 # langchain-anthropic>=0.2.0      # for FALLBACK_LLM_PROVIDER=anthropic

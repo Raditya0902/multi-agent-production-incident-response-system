@@ -13,3 +13,8 @@ data_storage/
 *.egg-info/
 dist/
 build/
+
+dev/
+tests/benchmark/results/
+INTERVIEW_CONTEXT.md
+dry_run_test.json

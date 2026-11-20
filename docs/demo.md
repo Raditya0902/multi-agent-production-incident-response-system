@@ -6,7 +6,7 @@ A recommended script for a 60–90 second live demo of the system. Use **Scenari
 
 ## Prerequisites
 
-1. `GROQ_API_KEY` set in `.env`
+1. Primary provider, model ID, and API key set in `.env`. Build the [Docker sandbox image](execution-and-approval.md) before running the demo.
 2. RAG knowledge base initialized: `python -m rag.ingestion`
 3. Dashboard running: `streamlit run frontend/app.py`
 4. Optional (for side effects): `SLACK_BOT_TOKEN`, `GITHUB_TOKEN`, `GITHUB_REPO` in `.env`
@@ -50,7 +50,7 @@ Click **Approve**. Phase 2 begins.
 
 The Execution Agent:
 - Finds the real pytest file (`tests/test_data_processing.py`)
-- Runs it in a subprocess sandbox
+- Runs it in the Docker sandbox
 - Reports `2 passed` — no retry needed
 
 ### Step 7 — Show the postmortem (5s)

@@ -33,6 +33,7 @@ class DeepSeekClient:
 
     def invoke(self, *args, **kwargs):
         from openai import APIConnectionError, APIStatusError
+        from agents import _model_rejected
         from agents.benchmark_usage import active_usage
 
         meter = active_usage()
@@ -42,6 +43,12 @@ class DeepSeekClient:
         except APIStatusError as error:
             if meter and error.status_code in {400, 401, 402, 403, 404, 422, 429}:
                 meter.reject(request)
+            if error.status_code != 404 and _model_rejected(error):
+                from agents import LLMConfigurationError
+
+                raise LLMConfigurationError(
+                    "DeepSeek rejected the configured model. Set DEEPSEEK_MODEL to an available model ID."
+                ) from None
             description = {
                 400: "request parameters rejected",
                 401: "authentication rejected",

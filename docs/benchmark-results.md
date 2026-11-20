@@ -1,10 +1,12 @@
-# Benchmark Results
+# Archived Benchmark Results
+
+These results document the legacy scoring and a retired Groq model.
 
 ## Environment
 
 | Field | Value |
 |---|---|
-| Model | `llama-3.3-70b-versatile` (Groq) |
+| Model | Retired Groq model |
 | Benchmark scenarios | 7 production-style incidents |
 | Run date | 2026-05-04 |
 | Python version | 3.11 |
@@ -80,32 +82,6 @@ For a full discussion of limitations, see [`limitations.md`](limitations.md).
 
 ---
 
-## Reproduce
+## Current runner
 
-To run the benchmark and verify these results:
-
-```bash
-# Requires GROQ_API_KEY set in .env
-python -m tests.benchmark.run_benchmark
-
-# Append results to history file
-python -m tests.benchmark.run_benchmark --save-history
-
-# Inspect raw results JSON
-cat tests/benchmark/results/latest.json
-
-# Run only first 3 scenarios (faster)
-python -m tests.benchmark.run_benchmark --max 3
-```
-
-Or with Docker:
-
-```bash
-docker compose run --rm app python -m tests.benchmark.run_benchmark
-```
-
-Results are written to `tests/benchmark/results/latest.json` after each run. Use the export script to generate a Markdown summary:
-
-```bash
-python scripts/export_benchmark_report.py
-```
+See the [benchmark instructions](../tests/benchmark/README.md) for the current runner and scoring.

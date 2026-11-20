@@ -159,13 +159,17 @@ def test_create_initial_state_zero_fills():
 
 
 # ---------------------------------------------------------------------------
-# Full pipeline integration test (requires GROQ_API_KEY)
+# Full pipeline integration test (requires configured provider credentials)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
 def test_full_pipeline_indexerror():
-    if not os.getenv("GROQ_API_KEY"):
-        pytest.skip("GROQ_API_KEY not set")
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+    if not provider:
+        pytest.skip("LLM_PROVIDER not set")
+    key_var = "DEEPSEEK_API_KEY" if provider == "deepseek" else "GROQ_API_KEY"
+    if not os.getenv(key_var):
+        pytest.skip(f"{key_var} not set")
 
     log_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
